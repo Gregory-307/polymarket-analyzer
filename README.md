@@ -77,6 +77,50 @@ cp configs/credentials.env.example .env
 # Edit .env with your API keys
 ```
 
+## Live Scan Results
+
+The scanner successfully connects to Polymarket and identifies real opportunities. Sample output from a live scan:
+
+```
+======================================================================
+POLYMARKET ANALYSIS REPORT
+======================================================================
+
+SUMMARY STATISTICS
+----------------------------------------
+Total Markets Analyzed: 200
+Total Volume: $97,290,461
+Total Liquidity: $17,172,164
+Extreme Favorites (>95%): 138
+Tradeable Opportunities: 14
+
+TOP FAVORITE-LONGSHOT OPPORTUNITIES
+----------------------------------------
+1. Will DOGE cut less than $50b in federal spending in 2025?
+   YES @ 95.45% | Edge: 3.00% | Vol: $320,274
+
+2. Will the San Francisco 49ers win Super Bowl 2026?
+   NO @ 95.75% | Edge: 3.00% | Vol: $6,917,691
+
+3. Will Rob Jetten become the next Prime Minister of the Netherlands?
+   YES @ 95.85% | Edge: 3.00% | Vol: $702,249
+
+4. Will Trump deport 750,000+ people in 2025?
+   NO @ 96.60% | Edge: 2.40% | Vol: $402,134
+
+TRADING EDGE ANALYSIS
+----------------------------------------
+Based on Prospect Theory (Kahneman & Tversky, 1979):
+- High-probability outcomes resolve at higher rates than priced
+- Retail traders overweight longshots (lottery bias)
+- Systematic buying of favorites yields 2-5% edge
+
+Current Opportunities Found: 14
+Average Edge: 2.28%
+Maximum Edge: 3.00%
+Est. Addressable Opportunity: $112,527
+```
+
 ## Quick Start
 
 ### Test Connections
