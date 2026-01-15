@@ -1,0 +1,83 @@
+{
+  "general": {
+    "log_level": "INFO",
+    "output_dir": "results",
+    "cache_ttl_seconds": 60
+  },
+
+  "platforms": {
+    "polymarket": {
+      "enabled": true,
+      "base_url": "https://clob.polymarket.com",
+      "gamma_url": "https://gamma-api.polymarket.com",
+      "chain_id": 137,
+      "timeout_seconds": 15,
+      "rate_limit_per_second": 10
+    },
+    "kalshi": {
+      "enabled": true,
+      "base_url": "https://api.elections.kalshi.com/trade-api/v2",
+      "timeout_seconds": 15,
+      "rate_limit_per_second": 10
+    }
+  },
+
+  "strategies": {
+    "favorite_longshot": {
+      "enabled": true,
+      "min_probability": 0.95,
+      "min_edge": 0.01,
+      "max_position_usd": 1000,
+      "description": "Buy systematically underpriced high-probability outcomes"
+    },
+
+    "single_arb": {
+      "enabled": true,
+      "min_profit_usd": 0.50,
+      "description": "YES + NO < $1.00 arbitrage"
+    },
+
+    "multi_arb": {
+      "enabled": true,
+      "min_profit_usd": 1.00,
+      "description": "Multi-outcome bundle arbitrage"
+    },
+
+    "cross_platform": {
+      "enabled": true,
+      "min_spread": 0.02,
+      "min_profit_after_fees": 0.01,
+      "description": "Polymarket vs Kalshi price discrepancies"
+    },
+
+    "market_maker": {
+      "enabled": false,
+      "target_spread": 0.02,
+      "max_inventory": 100,
+      "skew_factor": 0.1,
+      "description": "Simple market making with dynamic skew"
+    }
+  },
+
+  "metrics": {
+    "order_imbalance": {
+      "window_seconds": 300,
+      "threshold_bullish": 0.3,
+      "threshold_bearish": -0.3
+    },
+    "liquidity_depth": {
+      "levels": [0.01, 0.02, 0.05, 0.10],
+      "min_depth_usd": 100
+    },
+    "spread_dynamics": {
+      "window_seconds": 60,
+      "alert_threshold": 0.05
+    }
+  },
+
+  "scanning": {
+    "interval_seconds": 5,
+    "max_markets_per_scan": 100,
+    "alert_on_opportunity": true
+  }
+}
