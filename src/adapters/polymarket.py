@@ -169,6 +169,7 @@ class PolymarketAdapter(BaseAdapter):
 
         params: dict[str, Any] = {"limit": limit}
         if active_only:
+            params["closed"] = "false"
             params["active"] = "true"
         if category:
             params["tag"] = category
@@ -504,23 +505,37 @@ class PolymarketAdapter(BaseAdapter):
             Parsed Market object or None.
         """
         try:
+            import json as json_mod
+
             # Handle different response formats
             condition_id = data.get("conditionId") or data.get("condition_id") or data.get("id")
             if not condition_id:
                 return None
 
-            # Parse tokens for YES/NO prices
-            tokens = data.get("tokens", [])
+            # Parse outcomePrices (primary source for prices)
             yes_price = 0.5
             no_price = 0.5
 
-            for token in tokens:
-                outcome = token.get("outcome", "").upper()
-                price = float(token.get("price", 0.5))
-                if outcome == "YES":
-                    yes_price = price
-                elif outcome == "NO":
-                    no_price = price
+            outcome_prices = data.get("outcomePrices")
+            if outcome_prices:
+                try:
+                    prices = json_mod.loads(outcome_prices) if isinstance(outcome_prices, str) else outcome_prices
+                    if isinstance(prices, list) and len(prices) >= 2:
+                        yes_price = float(prices[0])
+                        no_price = float(prices[1])
+                except (json_mod.JSONDecodeError, ValueError, IndexError):
+                    pass
+
+            # Fallback to tokens array if outcomePrices not available
+            if yes_price == 0.5 and no_price == 0.5:
+                tokens = data.get("tokens", [])
+                for token in tokens:
+                    outcome = token.get("outcome", "").upper()
+                    price = float(token.get("price", 0.5))
+                    if outcome == "YES":
+                        yes_price = price
+                    elif outcome == "NO":
+                        no_price = price
 
             # Parse end date
             end_date = None
