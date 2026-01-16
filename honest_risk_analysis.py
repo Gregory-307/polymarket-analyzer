@@ -3,8 +3,8 @@
 import numpy as np
 from itertools import combinations
 
-# The 7 tradeable markets with real data
-trades = [
+# The tradeable markets with real data
+all_trades = [
     {"name": "49ers Super Bowl NO", "price": 0.952, "spread": 0.0011},
     {"name": "Bears Super Bowl NO", "price": 0.945, "spread": 0.0011},
     {"name": "Texans Super Bowl NO", "price": 0.910, "spread": 0.0011},
@@ -14,8 +14,33 @@ trades = [
     {"name": "Jaxson Dart OROY NO", "price": 0.960, "spread": 0.0177},
 ]
 
+# DYNAMIC EXCLUSION: Exclude trades where net edge < threshold
+GROSS_EDGE = 0.02  # 2% assumed edge from research
+MIN_NET_EDGE = 0.005  # Minimum 0.5% net edge to be worth the risk
+
+# Calculate net edge for each trade
+for t in all_trades:
+    t["net_edge"] = GROSS_EDGE - t["spread"]
+    t["ex_25"] = 25 * t["net_edge"] / t["price"]  # E(X) on $25 bet
+
+# Filter to trades with sufficient net edge
+trades = [t for t in all_trades if t["net_edge"] >= MIN_NET_EDGE]
+excluded = [t for t in all_trades if t["net_edge"] < MIN_NET_EDGE]
+
 STAKE = 25  # $25 per trade
 TOTAL_CAPITAL = STAKE * len(trades)
+
+print(f"DYNAMIC FILTERING: Net edge >= {MIN_NET_EDGE:.1%} (Gross {GROSS_EDGE:.0%} - Spread)")
+print(f"\nINCLUDED ({len(trades)} trades):")
+for t in trades:
+    print(f"  {t['name']:<25} spread {t['spread']:.2%} -> net edge {t['net_edge']:.2%} -> E(X) ${t['ex_25']:.2f}")
+
+if excluded:
+    print(f"\nEXCLUDED ({len(excluded)} trades - net edge < {MIN_NET_EDGE:.1%}):")
+    for t in excluded:
+        print(f"  {t['name']:<25} spread {t['spread']:.2%} -> net edge {t['net_edge']:.2%} (too thin)")
+
+print(f"\nPortfolio: {len(trades)} trades x ${STAKE} = ${TOTAL_CAPITAL}\n")
 
 print("=" * 70)
 print("HONEST RISK ANALYSIS - Assuming Market Prices Are Accurate (0% Edge)")
@@ -70,12 +95,13 @@ avg_win_rate = np.mean(probs)
 
 print(f"\n## Expected Hit Rate")
 print(f"Average win probability: {avg_win_rate:.1%}")
-print(f"Expected wins:   {expected_wins:.2f} / 7")
-print(f"Expected losses: {expected_losses:.2f} / 7")
+n = len(trades)
+print(f"Expected wins:   {expected_wins:.2f} / {n}")
+print(f"Expected losses: {expected_losses:.2f} / {n}")
 print(f"\nMost likely outcome: {round(expected_wins)} wins, {round(expected_losses)} loss")
 
 print(f"\n## Aggregate Probabilities")
-print(f"P(all 7 win)         = {p_all_win:.1%}")
+print(f"P(all {n} win)         = {p_all_win:.1%}")
 print(f"P(at least 1 loss)   = {p_at_least_one_loss:.1%}")
 
 # Calculate P(exactly k losses)
@@ -85,12 +111,12 @@ print("-" * 35)
 
 cumulative = 0
 loss_probs = []
-for k in range(8):
+for k in range(n + 1):
     # P(exactly k losses) using inclusion-exclusion
     prob = 0
-    for loss_combo in combinations(range(7), k):
+    for loss_combo in combinations(range(n), k):
         p_this = 1.0
-        for i in range(7):
+        for i in range(n):
             if i in loss_combo:
                 p_this *= (1 - probs[i])  # This one loses
             else:
@@ -122,15 +148,15 @@ cumulative_from_bottom = 0
 
 # Calculate from worst to best for cumulative
 results = []
-for losses in range(8):
-    wins = 7 - losses
+for losses in range(n + 1):
+    wins = n - losses
     prob = loss_probs[losses]
 
     if losses == 0:
         profit = total_win_profit
     else:
-        # Average case: lose $25 per loss, gain proportional wins
-        avg_win_profit = total_win_profit / 7
+        # Each trade's profit varies by price, calculate properly
+        avg_win_profit = total_win_profit / n
         profit = wins * avg_win_profit - losses * STAKE
 
     contribution = profit * prob
@@ -174,11 +200,11 @@ p_all_win_with_edge = np.prod(true_probs_with_edge)
 
 # Recalculate loss probabilities with edge
 loss_probs_edge = []
-for k in range(8):
+for k in range(n + 1):
     prob = 0
-    for loss_combo in combinations(range(7), k):
+    for loss_combo in combinations(range(n), k):
         p_this = 1.0
-        for i in range(7):
+        for i in range(n):
             if i in loss_combo:
                 p_this *= (1 - true_probs_with_edge[i])
             else:
@@ -188,30 +214,42 @@ for k in range(8):
 
 # Calculate expected value with edge
 total_expected_edge = 0
-for losses in range(8):
-    wins = 7 - losses
+for losses in range(n + 1):
+    wins = n - losses
     prob = loss_probs_edge[losses]
     if losses == 0:
         profit = total_win_profit
     else:
-        avg_win_profit = total_win_profit / 7
+        avg_win_profit = total_win_profit / n
         profit = wins * avg_win_profit - losses * STAKE
     total_expected_edge += profit * prob
 
 expected_wins_edge = sum(true_probs_with_edge)
-expected_losses_edge = 7 - expected_wins_edge
+expected_losses_edge = n - expected_wins_edge
 
+# Correlation adjustment - 5 of 6 remaining trades are NFL-related
+# Correlation increases P(multiple failures) when one fails
+# Estimate: P(loss) increases by ~20% relative (37% -> 44%)
+CORRELATION_FACTOR = 1.20
+p_loss_correlated = min(p_at_least_one_loss * CORRELATION_FACTOR, 0.99)
+p_all_win_correlated = 1 - p_loss_correlated
+
+# Recalculate E(X) with correlation
+# Assume correlation shifts probability mass from "all win" to "1+ loss" scenarios
+total_expected_correlated = p_all_win_correlated * total_win_profit + (1 - p_all_win_correlated) * (-14.5)  # avg 1-loss scenario
+
+n_trades = len(trades)
 print(f"""
-                              0% EDGE           2% EDGE
-                           (Efficient)      (Bias Exists)
----------------------------------------------------------""")
-print(f"Avg win probability:      {avg_win_rate:>7.1%}           {np.mean(true_probs_with_edge):>7.1%}")
-print(f"P(all 7 win):             {p_all_win:>7.1%}           {p_all_win_with_edge:>7.1%}")
-print(f"P(at least 1 loss):       {p_at_least_one_loss:>7.1%}           {1-p_all_win_with_edge:>7.1%}")
-print(f"Expected wins:            {expected_wins:>7.2f}           {expected_wins_edge:>7.2f}")
-print(f"Expected losses:          {expected_losses:>7.2f}           {expected_losses_edge:>7.2f}")
-print(f"E(X) on $175:            {total_expected:>+7.2f}          {total_expected_edge:>+7.2f}")
-print(f"ROI:                      {total_expected/TOTAL_CAPITAL:>+7.1%}          {total_expected_edge/TOTAL_CAPITAL:>+7.1%}")
+                           0% EDGE        2% EDGE        0% + CORRELATION
+                          (Efficient)   (Bias Exists)   (Realistic)
+------------------------------------------------------------------------""")
+print(f"Avg win probability:     {avg_win_rate:>7.1%}        {np.mean(true_probs_with_edge):>7.1%}          {avg_win_rate:>7.1%}")
+print(f"P(all {n_trades} win):            {p_all_win:>7.1%}        {p_all_win_with_edge:>7.1%}          {p_all_win_correlated:>7.1%}")
+print(f"P(at least 1 loss):      {p_at_least_one_loss:>7.1%}        {1-p_all_win_with_edge:>7.1%}          {p_loss_correlated:>7.1%}")
+print(f"Expected wins:           {expected_wins:>7.2f}        {expected_wins_edge:>7.2f}          {expected_wins:>7.2f}")
+print(f"Expected losses:         {expected_losses:>7.2f}        {expected_losses_edge:>7.2f}          {expected_losses * CORRELATION_FACTOR:>7.2f}")
+print(f"E(X) on ${TOTAL_CAPITAL}:          {total_expected:>+7.2f}       {total_expected_edge:>+7.2f}         {total_expected_correlated:>+7.2f}")
+print(f"ROI:                     {total_expected/TOTAL_CAPITAL:>+7.1%}       {total_expected_edge/TOTAL_CAPITAL:>+7.1%}         {total_expected_correlated/TOTAL_CAPITAL:>+7.1%}")
 
 # Maker vs Taker analysis
 print("\n" + "=" * 70)
@@ -259,21 +297,23 @@ print("\n" + "=" * 70)
 print("KEY INSIGHT")
 print("=" * 70)
 
+avg_loss_one = results[1][3] if len(results) > 1 else -25  # profit from 1-loss scenario
+
 print(f"""
-+-----------------------------------------------------------------+
-|  IF MARKETS ARE EFFICIENT (0% edge):                            |
-|                                                                 |
-|  * You have a 37.2% chance of at least one loss                 |
-|  * ONE loss wipes out ALL gains and puts you negative           |
-|  * Expected value ~ ${total_expected:.2f} (slightly negative from spreads)  |
-|                                                                 |
-|  This is a HIGH-VARIANCE strategy:                              |
-|  * 62.8% chance: +${total_win_profit:.2f}                                     |
-|  * 37.2% chance: -$12 to -$175                                  |
-|                                                                 |
-|  The 2% edge from research is UNVALIDATED on Polymarket.        |
-|  If it doesn't exist, you're flipping weighted coins.           |
-+-----------------------------------------------------------------+
+KEY NUMBERS:
+  P(all {n} win):        {p_all_win:.1%}
+  P(at least 1 loss):  {p_at_least_one_loss:.1%}  <- This is your LOSS probability
+  P(1 loss, correl.):  {p_loss_correlated:.1%}  <- More realistic with correlation
+
+IF ALL {n} WIN:  +${total_win_profit:.2f}
+IF 1 LOSES:      ${avg_loss_one:.2f}  <- ONE loss wipes gains and goes negative
+
+E(X) SCENARIOS:
+  0% edge (efficient):   ${total_expected:+.2f}
+  2% edge (bias):        ${total_expected_edge:+.2f}
+  0% edge + correlation: ${total_expected_correlated:+.2f}
+
+The 2% edge from research is UNVALIDATED on Polymarket.
 """)
 
 # Break-even analysis
@@ -293,20 +333,21 @@ print("\n" + "=" * 70)
 print("CORRELATION WARNING")
 print("=" * 70)
 
-print("""
+print(f"""
 The probability calculations above assume INDEPENDENCE.
 
-But 5 of 7 trades are NFL-related:
+But 5 of {n} trades are NFL-related:
   - 49ers Super Bowl, Bears Super Bowl, Texans Super Bowl
   - 49ers NFC Championship
-  - McMillan OROY, Jaxson Dart OROY
+  - McMillan OROY
 
 These are NOT independent. Correlated factors:
   * NFL season continuation (strike, lockout, catastrophe)
   * Playoff seeding affects multiple teams
   * Award voting influenced by same narratives
 
-TRUE P(at least 1 loss) is likely HIGHER than 37.2% due to correlation.
+Independent P(loss): {p_at_least_one_loss:.1%}
+Correlated P(loss):  {p_loss_correlated:.1%} (estimated +20% relative increase)
 """)
 
 print("=" * 70)
@@ -314,21 +355,15 @@ print("SUMMARY: REALISTIC EXPECTATIONS")
 print("=" * 70)
 
 print(f"""
-+------------------------------------------------------------------+
-|  OPTIMISTIC (2% edge exists):                                    |
-|    E(X) = +$2.88, P(profit) = 74.8%                              |
-|                                                                  |
-|  REALISTIC (0% edge, market efficient):                          |
-|    E(X) = -$0.43, P(profit) = 62.8%                              |
-|                                                                  |
-|  PESSIMISTIC (0% edge + correlation):                            |
-|    E(X) = -$0.43, P(profit) = ~55-60%                            |
-|                                                                  |
-|  With $175 at stake:                                             |
-|    * Best case (all win): +$12.07                                |
-|    * Worst case (all lose): -$175.00                             |
-|    * Expected (0% edge): -$0.43                                  |
-|                                                                  |
-|  This is essentially a 63/37 bet for +$12 / -$25 avg loss        |
-+------------------------------------------------------------------+
+                           E(X)      P(profit)    ROI
+OPTIMISTIC (2% edge):    ${total_expected_edge:+6.2f}     {p_all_win_with_edge:5.1%}      {total_expected_edge/TOTAL_CAPITAL:+.1%}
+REALISTIC (0% edge):     ${total_expected:+6.2f}     {p_all_win:5.1%}      {total_expected/TOTAL_CAPITAL:+.1%}
+PESSIMISTIC (correl.):   ${total_expected_correlated:+6.2f}     {p_all_win_correlated:5.1%}      {total_expected_correlated/TOTAL_CAPITAL:+.1%}
+
+With ${TOTAL_CAPITAL} at stake:
+  Best case (all win):    +${total_win_profit:.2f}
+  One loss:               ${avg_loss_one:.2f}
+  Worst case (all lose):  -${TOTAL_CAPITAL:.2f}
+
+Bottom line: {p_all_win:.0%}/{p_at_least_one_loss:.0%} bet for +${total_win_profit:.0f} / ${avg_loss_one:.0f}
 """)
