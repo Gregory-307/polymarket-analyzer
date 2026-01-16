@@ -191,23 +191,47 @@ Where:
 
 # RISK ASSESSMENT
 
-## Quantified Risks
+## Hit Rate Analysis
 
-| Risk | Probability | Impact | Mitigation |
-|------|-------------|--------|------------|
-| Single loss wipes gains | 4-10% per trade | Net negative | Accept asymmetric payoff |
-| Theory doesn't apply | Unknown | Zero edge | Track results, validate |
-| Correlated losses (NFL) | Low but real | Multiple losses | Diversify categories |
-| Platform risk (Polygon) | Very low | Total loss | Position limits |
+| Metric | 0% Edge (Efficient) | 2% Edge (Bias Exists) |
+|--------|---------------------|----------------------|
+| Avg win probability | 93.6% | 95.6% |
+| Expected wins | 6.55 / 7 | 6.69 / 7 |
+| Expected losses | 0.45 / 7 | 0.31 / 7 |
+| P(all 7 win) | 62.8% | 72.8% |
+| **P(at least 1 loss)** | **37.2%** | **27.2%** |
+
+## Outcome Probability Distribution
+
+| Wins | Losses | Probability | Cumulative | Profit | E(X) Contribution |
+|------|--------|-------------|------------|--------|-------------------|
+| 7 | 0 | 62.8% | 100% | +$12.07 | +$7.58 |
+| 6 | 1 | 30.3% | 37.2% | -$14.66 | -$4.44 |
+| 5 | 2 | 6.1% | 6.9% | -$41.38 | -$2.54 |
+| 4 | 3 | 0.7% | 0.7% | -$68.11 | -$0.46 |
+| ≤3 | ≥4 | <0.1% | <0.1% | -$95 to -$175 | ~$0 |
+
+**Critical insight:** You need ALL 7 to win to profit. One loss puts you negative.
+
+## Maker vs Taker Positions
+
+| Scenario | Taker (Market Order) | Maker (Limit Order) |
+|----------|---------------------|---------------------|
+| E(X) with 0% edge | +$0.09 | +$0.52 |
+| E(X) with 2% edge | +$3.84 | +$4.27 |
+| ROI with 0% edge | +0.1% | +0.3% |
+| ROI with 2% edge | +2.2% | +2.4% |
+
+Maker orders eliminate spread costs but may not fill.
 
 ## Correlation Warning
 
-5 of 7 trades are NFL-related. Correlated events that could affect multiple:
-- NFL labor dispute / lockout
-- Major scandal affecting league
-- Catastrophic event during playoffs
+5 of 7 trades are NFL-related. These are NOT independent:
+- NFL labor dispute / lockout would affect all
+- Playoff seeding affects multiple teams
+- Award voting influenced by same narratives
 
-The Rob Jetten (Netherlands) trade provides some decorrelation.
+**True P(at least 1 loss) is likely 40-45%** due to correlation, not 37.2%.
 
 ## Position Sizing
 
