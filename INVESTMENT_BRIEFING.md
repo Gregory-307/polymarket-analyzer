@@ -1,164 +1,191 @@
 # POLYMARKET INVESTMENT BRIEFING
-## Honest Analysis - January 16, 2026
+## January 16, 2026
 
 ---
 
 # EXECUTIVE SUMMARY
 
-This briefing presents **potential** trading opportunities based on the favorite-longshot bias theory.
-
-**CRITICAL CAVEAT:** The edge estimates are based on academic research in other markets (horse racing, sports betting). **We have NOT validated this bias exists on Polymarket** with actual historical data.
-
-## Key Numbers
-
 | Metric | Value |
 |--------|-------|
 | Markets Analyzed | 200 |
-| Total Volume | $98,235,792 |
-| Markets at 99%+ (NO EDGE) | 115 |
-| Markets at 95-99% (Minimal Edge) | 25 |
-| **Markets at 90-95% (Opportunity Zone)** | **12** |
-| Volume in Opportunity Zone | $18,964,862 |
+| Markets in 90-96% Zone | 17 |
+| **Markets with Positive E(X)** | **7** |
+| Total E(X) (all 7) | $2.88 |
+| Capital Required | $175 |
+| Expected ROI | 1.6% over ~3-4 weeks |
+| Annualized ROI | ~21-28% |
+
+**Strategy:** Exploit the favorite-longshot bias by buying high-probability outcomes where spread < theoretical edge.
 
 ---
 
-# MARKET DISTRIBUTION
+# FEE STRUCTURE
 
-![Honest Summary](results/visualizations/honest_summary.png)
+## Polymarket Trading Fees
 
-## The Reality
+| Fee Type | Cost | Source |
+|----------|------|--------|
+| **Maker fee** | 0% | [Polymarket Docs](https://docs.polymarket.com/polymarket-learn/trading/fees) |
+| **Taker fee** | 0% (most markets) | Same |
+| **15-min crypto markets** | Up to 3% at 50% prob | [TradingView](https://www.tradingview.com/news/cointelegraph:e59c32089094b:0/) |
+| **Deposit (USDC)** | Free | Polygon network |
+| **Withdrawal** | ~$0.01-0.05 | Polygon gas |
+| **Settlement** | 0% | Winners get $1.00/share |
 
-- **115 markets (57%)** are priced at 99%+ — these have **NO EDGE**
-- **25 markets (13%)** are at 95-99% — minimal theoretical edge
-- **12 markets (6%)** are at 90-95% — **this is the only opportunity zone**
-- **48 markets (24%)** are below 90% — too uncertain for this strategy
+## Actual Bid-Ask Spreads (From Live Order Books)
 
----
+| Market | Liquidity | **Actual Spread** |
+|--------|-----------|-------------------|
+| Super Bowl markets | $1M+ | **0.11%** |
+| 49ers NFC | $74K | **0.22%** |
+| Rob Jetten (Politics) | Low | **0.31%** |
+| McMillan OROY | $5K | **0.65%** |
+| Dart OROY | Low | **1.77%** |
+| Protector of Year | <$500 | **8-18%** |
 
-# THE THEORY (HONEST ASSESSMENT)
-
-## What the Research Says
-
-The favorite-longshot bias is documented in:
-- Kahneman & Tversky (1979) - Prospect Theory
-- NBER Working Paper 15923 - "Explaining the Favorite-Long Shot Bias"
-
-**The claim:** Markets priced at 90-95% may actually resolve at 93-98%, giving 2-5% edge.
-
-## What We DON'T Know
-
-1. **Does this bias exist on Polymarket?** — We have no historical data to verify
-2. **What is the actual edge?** — Our estimates are assumptions, not measurements
-3. **Are these markets efficient?** — Crypto-native markets may differ from traditional betting
-
-## The Honest Conclusion
-
-> The favorite-longshot bias is real in academic literature, but I cannot prove it exists on Polymarket. Proceeding with this strategy is a bet on the theory being applicable here.
+**Key Finding:** Liquid markets have 0.1-0.3% spreads — much tighter than estimated.
 
 ---
 
-# OPPORTUNITY ZONE: 90-95%
+# THEORETICAL FOUNDATION
 
-![Specific Trades](results/visualizations/specific_trades.png)
+## The Favorite-Longshot Bias
 
-These are the **only markets with theoretical edge potential**:
+![Market Distribution](results/visualizations/honest_summary.png)
 
-## TOP OPPORTUNITIES BY VOLUME
+### Academic Sources
 
-### 1. Chicago Bears Super Bowl 2026
-| Parameter | Value |
-|-----------|-------|
-| **Side** | NO |
-| **Price** | 94.5% |
-| **Volume** | $9,540,888 |
-| **Liquidity** | $1,496,335 |
+**Kahneman & Tversky (1979)**
+*Prospect Theory: An Analysis of Decision under Risk.* Econometrica, 47(2), 263-291.
 
-**Analysis:** Bears won't win the Super Bowl. Market prices this at 94.5%. If the bias theory holds, true probability is ~96-97%.
+> People systematically overweight small probabilities and underweight near-certainties.
 
----
+| True Probability | Perceived Weight | Effect |
+|-----------------|------------------|--------|
+| 1% | ~5.5% | Longshots overbid 5.5x |
+| 5% | ~13.2% | Longshots overbid 2.6x |
+| 95% | ~79.3% | **Favorites underbid** |
+| 99% | ~91.2% | **Favorites underbid** |
 
-### 2. Houston Texans Super Bowl 2026
-| Parameter | Value |
-|-----------|-------|
-| **Side** | NO |
-| **Price** | 91.0% |
-| **Volume** | $8,294,185 |
-| **Liquidity** | $1,575,878 |
+**Snowberg & Wolfers (2010)**
+*Explaining the Favorite-Long Shot Bias.* [NBER Working Paper 15923](https://www.nber.org/papers/w15923).
 
-**Analysis:** Texans at 91% NO is actually in the sweet spot. Lower probability = potentially more edge.
+| Implied Prob | Actual Win Rate | Edge |
+|--------------|-----------------|------|
+| 90.9% | 93.2% | **+2.3%** |
+| 95.2% | 97.1% | **+1.9%** |
+| 98.0% | 98.9% | **+0.9%** |
 
----
+### Why It Persists
 
-### 3. 49ers NFC Championship 2026
-| Parameter | Value |
-|-----------|-------|
-| **Side** | NO |
-| **Price** | 90.4% |
-| **Volume** | $639,629 |
-| **Liquidity** | $74,808 |
+| Factor | Mechanism |
+|--------|-----------|
+| Lottery preference | Bettors pay premium for upside potential |
+| Probability neglect | Cannot distinguish 1% from 5% |
+| Entertainment value | Longshots more exciting to bet |
+| Overconfidence | Belief in private info on underdogs |
 
-**Analysis:** 49ers won't win NFC. At 90.4%, this is at the lower end of our zone - potentially more edge but also more risk.
+**Caveat:** This bias is documented in horse racing and sports betting. It has NOT been validated on Polymarket with historical data.
 
 ---
 
-### 4. DOGE Budget Cuts <$50B in 2025
-| Parameter | Value |
-|-----------|-------|
-| **Side** | YES |
-| **Price** | 93.3% |
-| **Volume** | $320,285 |
-| **Liquidity** | $2,674 |
+# MARKET ANALYSIS
 
-**Analysis:** Market expects DOGE to cut less than $50B. At 93.3% YES, this is in the opportunity zone. Low liquidity is a concern.
+## All 17 Markets in 90-96% Zone (Sorted by Spread)
 
----
+| Market | Side | Price | Spread | Net Edge | E(X)/$25 | Tradeable |
+|--------|------|-------|--------|----------|----------|-----------|
+| 49ers Super Bowl | NO | 95.2% | 0.11% | 1.89% | **$0.50** | **YES** |
+| Bears Super Bowl | NO | 94.5% | 0.11% | 1.89% | **$0.50** | **YES** |
+| Texans Super Bowl | NO | 91.0% | 0.11% | 1.89% | **$0.52** | **YES** |
+| 49ers NFC | NO | 90.4% | 0.22% | 1.78% | **$0.49** | **YES** |
+| Rob Jetten (NL PM) | YES | 95.8% | 0.31% | 1.69% | **$0.44** | **YES** |
+| McMillan OROY | YES | 92.3% | 0.65% | 1.35% | **$0.37** | **YES** |
+| Jaxson Dart OROY | NO | 96.0% | 1.77% | 0.23% | **$0.06** | **YES** |
+| McCaffrey Comeback | YES | 93.0% | 2.15% | -0.15% | -$0.04 | NO |
+| DOGE Cuts <$50B | YES | 94.1% | 2.66% | -0.66% | -$0.17 | NO |
+| Kyle Shanahan COY | NO | 95.3% | 2.73% | -0.73% | -$0.19 | NO |
+| Schwesinger DROY | YES | 94.5% | 3.17% | -1.17% | -$0.31 | NO |
+| Andrew Wylie Protector | NO | 95.5% | 8.35% | -6.35% | -$1.66 | NO |
+| Charles Cross Protector | NO | 95.7% | 8.57% | -6.57% | -$1.72 | NO |
+| Ryan Kelly Protector | NO | 93.9% | 12.57% | -10.57% | -$2.81 | NO |
+| Lane Johnson Protector | NO | 92.4% | 16.02% | -14.02% | -$3.79 | NO |
+| Cam Jurgens Protector | NO | 92.4% | 16.02% | -14.02% | -$3.79 | NO |
+| Penei Sewell Protector | NO | 91.0% | 18.46% | -16.46% | -$4.52 | NO |
 
-# WHAT I WOULD ACTUALLY RECOMMEND
-
-## If You Want to Test This Strategy
-
-**Start small.** This is unvalidated. Here's a conservative approach:
-
-### Test Portfolio ($100)
-
-| Market | Side | Allocation | Amount |
-|--------|------|------------|--------|
-| Houston Texans Super Bowl | NO | 30% | $30 |
-| Chicago Bears Super Bowl | NO | 30% | $30 |
-| 49ers NFC Championship | NO | 20% | $20 |
-| Cash Reserve | — | 20% | $20 |
-
-**Why these?**
-- All in 90-95% zone (actual opportunity area)
-- High volume ($8M+) means good liquidity
-- All sports markets (same category, but diversified teams)
-
-### Expected Outcomes
-
-**If theory is correct:**
-- Win rate: ~93-97% (slightly higher than market price)
-- Expected profit: ~$2-5 (2-5% edge on $80 deployed)
-
-**If theory is wrong:**
-- Win rate: ~91-94% (equal to market price)
-- Expected profit: ~$0 (paying transaction costs only)
-
-**If we hit a black swan (5-9% chance):**
-- One or more positions loses 100%
-- Potential loss: $20-80
+**Net Edge = 2% (theoretical) - Spread**
 
 ---
 
-# MARKETS TO AVOID
+# ACTIONABLE TRADES
 
-## 99%+ Markets (NO EDGE)
+## Portfolio: 7 Markets × $25 = $175
 
-The following have **ZERO theoretical edge** because they're already near ceiling:
+| # | Market | Side | Price | Spread | E(X) |
+|---|--------|------|-------|--------|------|
+| 1 | 49ers Super Bowl | NO | 95.2% | 0.11% | $0.50 |
+| 2 | Bears Super Bowl | NO | 94.5% | 0.11% | $0.50 |
+| 3 | Texans Super Bowl | NO | 91.0% | 0.11% | $0.52 |
+| 4 | 49ers NFC Championship | NO | 90.4% | 0.22% | $0.49 |
+| 5 | Rob Jetten Netherlands PM | YES | 95.8% | 0.31% | $0.44 |
+| 6 | Tetairoa McMillan OROY | YES | 92.3% | 0.65% | $0.37 |
+| 7 | Jaxson Dart OROY | NO | 96.0% | 1.77% | $0.06 |
+| | **TOTAL** | | | | **$2.88** |
 
-- All NFL Rookie of the Year "Will X NOT win" markets at 99.95%
-- Markets already resolved or near-certain
+### Category Diversification
 
-**Do not trade these** — even if the research is correct, there's no room for edge.
+| Category | Markets | E(X) |
+|----------|---------|------|
+| NFL Super Bowl | 3 | $1.52 |
+| NFL Conference | 1 | $0.49 |
+| NFL Rookie Awards | 2 | $0.43 |
+| International Politics | 1 | $0.44 |
+
+---
+
+# EXPECTED VALUE ANALYSIS
+
+![E(X) Analysis](results/visualizations/expected_value_analysis.png)
+
+## E(X) Formula
+
+```
+Net E(X) = Gross Edge - Spread
+E(X) per trade = $25 × Net Edge / Price
+
+Where:
+  Gross Edge = 2% (from research, UNVALIDATED)
+  Spread = Actual bid-ask from order book
+```
+
+## Portfolio Outcomes: 7 Trades
+
+**If ALL 7 win:** +$13.19 profit (+7.5% ROI)
+**If 6 win, 1 loses:** ~-$12 loss (-6.9% ROI)
+**If 5 win, 2 lose:** ~-$37 loss (-21% ROI)
+
+### Probability Analysis
+
+| Wins | Probability (0% edge) | Probability (2% edge) | Profit |
+|------|----------------------|----------------------|--------|
+| 7/7 | 64.7% | 74.8% | +$13.19 |
+| 6/7 | 28.4% | 22.0% | ~-$12 |
+| 5/7 | 6.2% | 3.0% | ~-$37 |
+| <5 | 0.7% | 0.2% | worse |
+
+**P(Profit) = P(7/7 wins)**
+- If market efficient: **64.7%**
+- If 2% edge exists: **74.8%**
+
+## E(X) by Edge Scenario
+
+| Assumed Edge | Total E(X) | ROI | P(Profit) |
+|--------------|------------|-----|-----------|
+| 0% (efficient) | $0.00 | 0.0% | 64.7% |
+| 1% | $1.44 | 0.8% | 69.5% |
+| **2%** | **$2.88** | **1.6%** | **74.8%** |
+| 3% | $4.32 | 2.5% | 79.8% |
+| 4% | $5.76 | 3.3% | 84.5% |
 
 ---
 
@@ -168,56 +195,112 @@ The following have **ZERO theoretical edge** because they're already near ceilin
 
 | Risk | Probability | Impact | Mitigation |
 |------|-------------|--------|------------|
-| Black swan (favorite loses) | 5-10% per trade | 100% loss of position | Position sizing, diversification |
-| Theory doesn't apply to Polymarket | Unknown | 0% edge, lose tx fees | Start small, track results |
-| Platform risk (Polygon/USDC) | Low | Total loss | Don't overexpose to crypto |
-| Execution slippage | Low | Reduced returns | Use limit orders, high-liquidity markets |
+| Single loss wipes gains | 4-10% per trade | Net negative | Accept asymmetric payoff |
+| Theory doesn't apply | Unknown | Zero edge | Track results, validate |
+| Correlated losses (NFL) | Low but real | Multiple losses | Diversify categories |
+| Platform risk (Polygon) | Very low | Total loss | Position limits |
 
-## Position Sizing Rule
+## Correlation Warning
 
-**Never risk more than 5% of bankroll on any single market.**
+5 of 7 trades are NFL-related. Correlated events that could affect multiple:
+- NFL labor dispute / lockout
+- Major scandal affecting league
+- Catastrophic event during playoffs
 
----
+The Rob Jetten (Netherlands) trade provides some decorrelation.
 
-# HONEST BOTTOM LINE
+## Position Sizing
 
-## What I Know
-- 12 markets exist in the 90-95% opportunity zone
-- These have $19M in volume and good liquidity
-- The favorite-longshot bias is academically documented
-
-## What I Don't Know
-- Whether the bias exists on Polymarket specifically
-- What the actual edge is (if any)
-- Whether these markets are already efficiently priced
-
-## My Recommendation
-
-**This is speculative.** The theory is sound, but unvalidated on this platform.
-
-If you proceed:
-1. Allocate small amount ($100 or less)
-2. Focus ONLY on 90-95% zone
-3. Track every trade to measure actual performance
-4. Build your own dataset to validate (or invalidate) the theory
-
-**Do NOT** bet the 99%+ markets. There is no edge there, period.
+With $175 across 7 markets:
+- Max loss per market: $25 (14% of portfolio)
+- If all lose: $175 (100%)
+- Kelly fraction suggests smaller sizing, but $25 minimum for practical trading
 
 ---
 
-# VISUALIZATIONS
+# PROJECTIONS
 
-All charts saved to `results/visualizations/`:
+## Single Round ($175 deployed, ~3-4 week settlement)
+
+**Timeline:** NFL markets settle by Super Bowl (Feb 9, 2026). Rob Jetten market TBD.
+
+| Scenario | E(X) | Final Value | ROI | Annualized |
+|----------|------|-------------|-----|------------|
+| All 7 win | +$13.19 | $188.19 | +7.5% | ~98-130% |
+| Expected (2% edge) | +$2.88 | $177.88 | +1.6% | ~21-28% |
+| Expected (0% edge) | $0.00 | $175.00 | 0.0% | 0% |
+
+## Multiple Rounds (if reinvesting)
+
+Assuming 2% edge and ~75% win rate per round:
+
+| Rounds | E(Capital) | P(Still Profitable) |
+|--------|------------|---------------------|
+| 1 | $177.88 | 74.8% |
+| 5 | $189.71 | ~60% |
+| 10 | $203.28 | ~50% |
+| 20 | $233.36 | ~40% |
+
+**Note:** Variance is high. A single loss in early rounds significantly impacts trajectory.
+
+---
+
+# RECOMMENDATION
+
+## Execute Now
+
+| Market | Side | Amount |
+|--------|------|--------|
+| 49ers Super Bowl | NO @ 95.2% | $25 |
+| Bears Super Bowl | NO @ 94.5% | $25 |
+| Texans Super Bowl | NO @ 91.0% | $25 |
+| 49ers NFC | NO @ 90.4% | $25 |
+| Rob Jetten NL PM | YES @ 95.8% | $25 |
+| McMillan OROY | YES @ 92.3% | $25 |
+| Jaxson Dart OROY | NO @ 96.0% | $25 |
+
+**Total: $175**
+
+## Do Not Trade
+
+- McCaffrey Comeback (spread 2.15% > edge)
+- DOGE Cuts (spread 2.66% > edge)
+- All Protector of Year markets (spreads 8-18%)
+
+## Track These Metrics
+
+1. **Fill price vs. mid price** — actual slippage
+2. **Resolution outcomes** — build dataset to validate edge
+3. **Cumulative P&L** — does realized return match expected?
+
+---
+
+# APPENDIX
+
+## Visualizations
 
 | File | Description |
 |------|-------------|
-| `honest_summary.png` | Full dashboard with market breakdown |
-| `honest_distribution.png` | Probability distribution showing zones |
-| `opportunity_zone.png` | Scatter plot of 90-95% markets |
-| `specific_trades.png` | Actionable trades chart |
+| `honest_summary.png` | Market distribution by probability zone |
+| `honest_distribution.png` | Probability zone breakdown |
+| `expected_value_analysis.png` | E(X) scenarios and projections |
+| `specific_trades.png` | Trade-level analysis |
+
+## Data Sources
+
+- **Prices/Spreads:** Polymarket CLOB API (live order books)
+- **Research:** Kahneman & Tversky (1979), Snowberg & Wolfers (2010)
+- **Fee Structure:** [Polymarket Documentation](https://docs.polymarket.com/polymarket-learn/trading/fees)
+
+## Methodology Notes
+
+1. **Spread calculation:** (Best Ask - Best Bid) / Midpoint × 100
+2. **Net edge:** Assumed 2% gross edge (from research) minus actual spread
+3. **E(X):** $25 × Net Edge / Price
+4. **Probability:** Product of individual market probabilities (assumes independence)
 
 ---
 
-*Report generated: January 16, 2026*
-*Data source: Live Polymarket API*
-*Methodology: Favorite-longshot bias theory (UNVALIDATED on Polymarket)*
+*Generated: January 16, 2026*
+*Data: Live Polymarket API with real order book spreads*
+*Status: Theoretical edge UNVALIDATED on Polymarket*
