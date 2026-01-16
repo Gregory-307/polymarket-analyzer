@@ -122,6 +122,67 @@ IF 0% EDGE:
 
 ---
 
+# CORRELATION ANALYSIS
+
+## Key Insight: E(X) Does NOT Change with Correlation
+
+This is a mathematical fact: E[X + Y] = E[X] + E[Y], regardless of correlation.
+
+Correlation affects:
+- **Variance** (higher correlation = more volatile outcomes)
+- **Joint probabilities** (P(all win), P(all lose))
+- **Outcome distribution** (more extreme results)
+
+Correlation does **NOT** affect:
+- Expected value (E(X) stays constant)
+
+## Methodology: Gaussian Copula Simulation
+
+1. Generate correlated standard normal variables
+2. Transform to uniform via CDF (copula step)
+3. Convert to binary outcomes by comparing to win probabilities
+4. Run 100,000 Monte Carlo simulations
+
+## Results (2% Edge)
+
+| Correlation | P(all win) | P(all lose) | Std Dev | E(X) |
+|-------------|------------|-------------|---------|------|
+| 0% | 74.4% | 0.000% | $14.14 | **+$3.02** |
+| 10% | 75.6% | 0.000% | $14.90 | **+$3.02** |
+| 20% | 76.9% | 0.002% | $15.84 | **+$3.02** |
+| 30% | 78.3% | 0.006% | $17.04 | **+$3.02** |
+
+**Observation:** E(X) = +$3.02 is CONSTANT regardless of correlation.
+
+## Results (0% Edge)
+
+| Correlation | P(all win) | P(all lose) | Std Dev | E(X) |
+|-------------|------------|-------------|---------|------|
+| 0% | 65.4% | 0.000% | $16.62 | **-$0.20** |
+| 10% | 67.3% | 0.000% | $17.78 | **-$0.20** |
+| 20% | 69.5% | 0.002% | $19.12 | **-$0.20** |
+| 30% | 71.5% | 0.019% | $20.67 | **-$0.20** |
+
+## What This Means
+
+For this portfolio of high-probability bets (all >90% implied):
+
+1. **Positive correlation HELPS** - P(all win) increases from 74% to 78%
+2. **But risk also increases** - P(all lose) goes from 0% to 0.006%
+3. **Volatility increases** - Std dev goes from $14 to $17
+4. **E(X) is unchanged** - Your expected profit doesn't depend on correlation
+
+## Correlation Sources
+
+Our trades have potential correlation because:
+- 4 NFL markets may move together (common league factors)
+- Dutch politics market is independent of NFL
+- NFL awards market has partial correlation with game outcomes
+
+Estimated portfolio correlation: ~10-20% for NFL-heavy portion
+
+---
+
 # THEORETICAL FOUNDATION
 
 ## The Favorite-Longshot Bias
@@ -198,6 +259,11 @@ All calculations can be reproduced by running:
 ```
 python advanced_risk_analysis.py
 ```
+
+## Outputs
+
+- `results/visualizations/advanced_risk_analysis.png` - Main risk analysis charts
+- `results/visualizations/correlation_analysis.png` - Correlation effects visualization
 
 ---
 

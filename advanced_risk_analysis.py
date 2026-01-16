@@ -27,6 +27,7 @@ METHODOLOGY:
 """
 
 import numpy as np
+from scipy.stats import norm
 from itertools import combinations
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -122,6 +123,134 @@ def calculate_scenario_probabilities(trades, edge=0.02):
     return scenarios
 
 
+def simulate_correlated_outcomes(true_probs, correlation, n_sims=100000):
+    """
+    Simulate correlated binary outcomes using Gaussian Copula.
+
+    METHODOLOGY:
+    1. Generate correlated standard normal variables (multivariate normal)
+    2. Transform to uniform via CDF (copula transformation)
+    3. Convert to binary by comparing to win probabilities
+
+    KEY INSIGHT:
+    - E(X) does NOT change with correlation (E[X+Y] = E[X] + E[Y] always)
+    - Correlation affects variance and joint probabilities
+    - Positive correlation: more 6/0 and 0/6, fewer 4/2 and 3/3
+
+    Args:
+        true_probs: list of individual win probabilities for each trade
+        correlation: pairwise correlation coefficient (0 = independent, 1 = perfect)
+        n_sims: number of Monte Carlo simulations
+
+    Returns:
+        outcomes: (n_sims, n_trades) array of binary outcomes (1=win, 0=lose)
+    """
+    n = len(true_probs)
+
+    # Create correlation matrix (equicorrelation structure)
+    cov = np.full((n, n), correlation)
+    np.fill_diagonal(cov, 1.0)
+
+    # Generate correlated standard normals
+    z = np.random.multivariate_normal(np.zeros(n), cov, n_sims)
+
+    # Transform to uniform via CDF (copula step)
+    u = norm.cdf(z)
+
+    # Convert to binary outcomes: win if u < true_prob
+    outcomes = (u < true_probs).astype(int)
+
+    return outcomes
+
+
+def analyze_correlation_effects(trades, edge=0.02, correlations=[0.0, 0.1, 0.2, 0.3], n_sims=100000):
+    """
+    Analyze how correlation affects outcome distribution.
+
+    IMPORTANT: E(X) is CONSTANT across all correlation levels.
+    Only P(all win), P(all lose), and variance change.
+    """
+    true_probs = np.array([min(t["price"] + edge, 0.999) for t in trades])
+    profits_per_trade = np.array([STAKE * (1 - t["price"]) / t["price"] for t in trades])
+    spread_costs = np.array([STAKE * t["spread"] / 2 / t["price"] for t in trades])
+
+    # Calculate fixed E(X) - this does NOT change with correlation
+    ex_per_trade = true_probs * profits_per_trade + (1 - true_probs) * (-STAKE) - spread_costs
+    total_ex = np.sum(ex_per_trade)
+
+    results = []
+
+    for corr in correlations:
+        np.random.seed(42)  # Reproducibility
+        outcomes = simulate_correlated_outcomes(true_probs, corr, n_sims)
+
+        # Calculate profit for each simulation
+        wins = outcomes  # 1 if win, 0 if lose
+        profits = np.sum(wins * profits_per_trade - (1 - wins) * STAKE - spread_costs, axis=1)
+
+        # Count outcome scenarios
+        n_wins = np.sum(outcomes, axis=1)
+        scenario_counts = [np.mean(n_wins == k) for k in range(len(trades) + 1)]
+
+        results.append({
+            "correlation": corr,
+            "p_all_win": np.mean(np.all(outcomes == 1, axis=1)),
+            "p_all_lose": np.mean(np.all(outcomes == 0, axis=1)),
+            "simulated_ex": np.mean(profits),
+            "std_dev": np.std(profits),
+            "var": np.var(profits),
+            "theoretical_ex": total_ex,  # Should match simulated
+            "scenario_probs": scenario_counts,
+            "percentile_5": np.percentile(profits, 5),
+            "percentile_95": np.percentile(profits, 95),
+        })
+
+    return results
+
+
+def print_correlation_analysis(results, edge):
+    """Print correlation analysis results."""
+    print(f"\n{'='*80}")
+    print(f"CORRELATION ANALYSIS (edge = {edge:.0%})")
+    print("=" * 80)
+    print("""
+KEY INSIGHT: E(X) does NOT change with correlation.
+Correlation affects variance and joint probabilities, not expected value.
+
+Methodology: Gaussian Copula with 100,000 simulations
+""")
+
+    print("-" * 80)
+    print(f"{'Correlation':>12} {'P(all win)':>12} {'P(all lose)':>14} {'Std Dev':>10} {'E(X)':>10}")
+    print("-" * 80)
+
+    for r in results:
+        print(f"{r['correlation']:>12.0%} {r['p_all_win']:>11.1%} {r['p_all_lose']:>13.4%} "
+              f"{r['std_dev']:>9.2f} {r['theoretical_ex']:>+9.2f}")
+
+    print("-" * 80)
+    print(f"\nNote: E(X) = ${results[0]['theoretical_ex']:+.2f} is CONSTANT regardless of correlation.")
+    print("Positive correlation increases both P(all win) AND P(all lose).")
+
+    # Detailed scenario breakdown
+    print(f"\nOUTCOME DISTRIBUTION BY CORRELATION")
+    print("-" * 70)
+    header = f"{'Outcome':<10}"
+    for r in results:
+        header += f" {'rho=' + str(int(r['correlation']*100)) + '%':>12}"
+    print(header)
+    print("-" * 70)
+
+    n = len(results[0]['scenario_probs'])
+    for k in range(n):
+        row = f"{n-1-k}W/{k}L{'':<4}"
+        for r in results:
+            row += f" {r['scenario_probs'][n-1-k]:>11.1%}"
+        print(row)
+
+    print("-" * 70)
+
+
 def run_analysis():
     """Run complete analysis and print results."""
 
@@ -194,7 +323,7 @@ P(at least 1 loss):     {1-p_win_2:>6.1%}          {1-p_win_0:>6.1%}
 
 PAYOFFS:
   All 6 win:            +${profit_all_win:.2f}
-  5 win, 1 lose:        -${STAKE - profit_all_win/6:.2f}
+  5 win, 1 lose:        -${STAKE - 5*profit_all_win/6:.2f}
   Max loss (all lose):  -${STAKE * 6:.2f}
 
 FORMULAS USED:
@@ -204,10 +333,21 @@ FORMULAS USED:
   P(all win) = product of true_probabilities
 """)
 
-    return metrics_2, metrics_0, ex_2, ex_0, p_win_2, p_win_0
+    # Correlation analysis
+    print("\n" + "=" * 80)
+    print("CORRELATION ANALYSIS")
+    print("=" * 80)
+
+    corr_results_2 = analyze_correlation_effects(TRADES, edge=0.02)
+    print_correlation_analysis(corr_results_2, edge=0.02)
+
+    corr_results_0 = analyze_correlation_effects(TRADES, edge=0.0)
+    print_correlation_analysis(corr_results_0, edge=0.0)
+
+    return metrics_2, metrics_0, ex_2, ex_0, p_win_2, p_win_0, corr_results_2, corr_results_0
 
 
-def create_visualization(metrics_2, metrics_0, ex_2, ex_0, p_win_2, p_win_0):
+def create_visualization(metrics_2, metrics_0, ex_2, ex_0, p_win_2, p_win_0, corr_results_2=None, corr_results_0=None):
     """Create simple, clear visualization."""
 
     fig, axes = plt.subplots(2, 2, figsize=(12, 10))
@@ -263,6 +403,83 @@ def create_visualization(metrics_2, metrics_0, ex_2, ex_0, p_win_2, p_win_0):
     print("\nSaved: results/visualizations/advanced_risk_analysis.png")
 
 
+def create_correlation_visualization(corr_results_2, corr_results_0):
+    """
+    Create visualization showing correlation effects.
+
+    KEY POINT: E(X) line is flat across all correlations.
+    """
+    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+    fig.suptitle("Correlation Analysis (Gaussian Copula)", fontsize=14, fontweight='bold')
+
+    correlations = [r['correlation'] for r in corr_results_2]
+
+    # 1. P(all win) vs correlation
+    ax1 = axes[0, 0]
+    p_all_win_2 = [r['p_all_win'] * 100 for r in corr_results_2]
+    p_all_win_0 = [r['p_all_win'] * 100 for r in corr_results_0]
+    ax1.plot(correlations, p_all_win_2, 'go-', label='2% Edge', linewidth=2, markersize=8)
+    ax1.plot(correlations, p_all_win_0, 'rs--', label='0% Edge', linewidth=2, markersize=8)
+    ax1.set_xlabel('Correlation')
+    ax1.set_ylabel('P(all 6 win) %')
+    ax1.set_title('Probability of All Trades Winning')
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
+
+    # 2. E(X) vs correlation - FLAT LINE (the key insight)
+    ax2 = axes[0, 1]
+    ex_2 = [r['theoretical_ex'] for r in corr_results_2]
+    ex_0 = [r['theoretical_ex'] for r in corr_results_0]
+    ax2.plot(correlations, ex_2, 'go-', label='2% Edge', linewidth=2, markersize=8)
+    ax2.plot(correlations, ex_0, 'rs--', label='0% Edge', linewidth=2, markersize=8)
+    ax2.axhline(y=0, color='black', linewidth=0.5)
+    ax2.set_xlabel('Correlation')
+    ax2.set_ylabel('E(X) ($)')
+    ax2.set_title('E(X) is CONSTANT (Does NOT Change)')
+    ax2.legend()
+    ax2.grid(True, alpha=0.3)
+    ax2.annotate('E(X) does not change\nwith correlation!',
+                 xy=(0.15, ex_2[1]), xytext=(0.2, ex_2[1] + 1.5),
+                 fontsize=10, ha='center',
+                 arrowprops=dict(arrowstyle='->', color='green'))
+
+    # 3. Standard deviation vs correlation
+    ax3 = axes[1, 0]
+    std_2 = [r['std_dev'] for r in corr_results_2]
+    std_0 = [r['std_dev'] for r in corr_results_0]
+    ax3.plot(correlations, std_2, 'go-', label='2% Edge', linewidth=2, markersize=8)
+    ax3.plot(correlations, std_0, 'rs--', label='0% Edge', linewidth=2, markersize=8)
+    ax3.set_xlabel('Correlation')
+    ax3.set_ylabel('Std Dev ($)')
+    ax3.set_title('Volatility Increases with Correlation')
+    ax3.legend()
+    ax3.grid(True, alpha=0.3)
+
+    # 4. Outcome distribution at different correlations (2% edge)
+    ax4 = axes[1, 1]
+    outcomes = ['6W/0L', '5W/1L', '4W/2L', '3W/3L', '2W/4L', '1W/5L', '0W/6L']
+    x = np.arange(len(outcomes))
+    width = 0.2
+
+    for i, r in enumerate(corr_results_2):
+        probs = [r['scenario_probs'][6-j] * 100 for j in range(7)]
+        ax4.bar(x + i*width - 0.3, probs, width, label=f'{int(r["correlation"]*100)}%', alpha=0.8)
+
+    ax4.set_xlabel('Outcome')
+    ax4.set_ylabel('Probability (%)')
+    ax4.set_title('Outcome Distribution by Correlation (2% Edge)')
+    ax4.set_xticks(x)
+    ax4.set_xticklabels(outcomes)
+    ax4.legend(loc='upper right')
+
+    plt.tight_layout()
+    plt.savefig('results/visualizations/correlation_analysis.png', dpi=150, bbox_inches='tight')
+    plt.close()
+    print("Saved: results/visualizations/correlation_analysis.png")
+
+
 if __name__ == "__main__":
-    metrics_2, metrics_0, ex_2, ex_0, p_win_2, p_win_0 = run_analysis()
-    create_visualization(metrics_2, metrics_0, ex_2, ex_0, p_win_2, p_win_0)
+    results = run_analysis()
+    metrics_2, metrics_0, ex_2, ex_0, p_win_2, p_win_0, corr_results_2, corr_results_0 = results
+    create_visualization(metrics_2, metrics_0, ex_2, ex_0, p_win_2, p_win_0, corr_results_2, corr_results_0)
+    create_correlation_visualization(corr_results_2, corr_results_0)
