@@ -36,12 +36,19 @@ def analyze_portfolio(trades, correlation_factor=1.0, assume_edge=True):
     Analyze portfolio with proper correlation adjustment.
 
     Correlation INCREASES loss probability and DECREASES E(X).
+
+    When assume_edge=True, we adjust probabilities by adding the gross edge
+    (e.g., if market price is 92% and edge is 2%, true probability is 94%).
     """
     n = len(trades)
     if n == 0:
         return None
 
-    probs = [t["price"] for t in trades]
+    # If edge exists, true probabilities are higher than market prices
+    if assume_edge:
+        probs = [min(t["price"] + GROSS_EDGE, 0.999) for t in trades]
+    else:
+        probs = [t["price"] for t in trades]
     capital = STAKE * n
     profit_all_win = sum(t["profit_win"] for t in trades)
 
@@ -260,7 +267,7 @@ EXPECTED VALUE:
                             E(X)       ROI      P(profit)
   2% edge, independent:   {r_edge_indep['ex']:>+7.2f}    {r_edge_indep['roi']:>+5.1%}     {r_edge_indep['p_win']:.1%}
   2% edge, correlated:    {r_edge_corr['ex']:>+7.2f}    {r_edge_corr['roi']:>+5.1%}     {r_edge_corr['p_win']:.1%}
-  0% edge, correlated:    {r_no_edge_corr['ex']:>+7.2f}    {r_no_edge_corr['roi']:>+5.1%}     {r_edge_corr['p_win']:.1%}
+  0% edge, correlated:    {r_no_edge_corr['ex']:>+7.2f}    {r_no_edge_corr['roi']:>+5.1%}     {r_no_edge_corr['p_win']:.1%}
 
 RISK METRICS (with correlation):
   VaR 95%:              ${r_edge_corr['var_95']:.2f}
@@ -268,8 +275,9 @@ RISK METRICS (with correlation):
   E(Loss | Loss):       ${r_edge_corr['expected_loss_given_loss']:.2f}
   Risk-Adjusted Ratio:  {r_edge_corr['sharpe_like']:.3f}
 
-BOTTOM LINE:
-  {r_edge_corr['p_win']:.0%} / {r_edge_corr['p_loss']:.0%} bet
+BOTTOM LINE (with 20% correlation):
+  IF 2% edge: {r_edge_corr['p_win']:.0%} / {r_edge_corr['p_loss']:.0%} bet, E(X) = ${r_edge_corr['ex']:+.2f}
+  IF 0% edge: {r_no_edge_corr['p_win']:.0%} / {r_no_edge_corr['p_loss']:.0%} bet, E(X) = ${r_no_edge_corr['ex']:+.2f}
   Win: +${profit_win:.0f}  |  Lose: ${one_loss_profit:.0f} to ${r_edge_corr['max_loss']:.0f}
 """)
 

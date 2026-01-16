@@ -5,19 +5,22 @@
 
 # EXECUTIVE SUMMARY
 
-| Metric | Value |
-|--------|-------|
-| Markets Analyzed | 200 |
-| Markets in 90-96% Zone | 17 |
-| **Trades with Edge/Spread > 2x** | **6** |
-| Capital Required | **$150** |
-| P(all 6 win) - independent | 65.4% |
-| P(all 6 win) - with correlation | **58.5%** |
-| P(at least 1 loss) | **41.5%** |
+| Metric | IF 2% Edge | IF 0% Edge |
+|--------|------------|------------|
+| Markets Analyzed | 200 | 200 |
+| Trades Executed | 6 | 6 |
+| Capital Required | $150 | $150 |
+| P(all 6 win) | **69.2%** | **58.5%** |
+| P(at least 1 loss) | 30.8% | **41.5%** |
+| E(X) per round | **+$1.60** | **-$0.20** |
 
 **Strategy:** Exploit the favorite-longshot bias by buying high-probability outcomes where net edge > 0.5%.
 
-**Bottom Line:** 59%/41% bet. Win all 6: +$11. Lose any: -$16 to -$150.
+**Two Scenarios (both shown with 20% correlation):**
+- **IF 2% edge exists:** 69%/31% bet, E(X) = +$1.60/round
+- **IF markets efficient:** 59%/41% bet, E(X) = -$0.20/round
+
+**Bottom Line:** Win all 6: +$11. Lose any: -$16 to -$150. The edge is UNVALIDATED.
 
 ---
 
@@ -121,73 +124,75 @@
 
 # ACTIONABLE TRADES
 
-## Portfolio: 7 Markets × $25 = $175
+## Portfolio: 6 Markets × $25 = $150
 
-| # | Market | Side | Price | Spread | E(X) |
-|---|--------|------|-------|--------|------|
-| 1 | 49ers Super Bowl | NO | 95.2% | 0.11% | $0.50 |
-| 2 | Bears Super Bowl | NO | 94.5% | 0.11% | $0.50 |
-| 3 | Texans Super Bowl | NO | 91.0% | 0.11% | $0.52 |
-| 4 | 49ers NFC Championship | NO | 90.4% | 0.22% | $0.49 |
-| 5 | Rob Jetten Netherlands PM | YES | 95.8% | 0.31% | $0.44 |
-| 6 | Tetairoa McMillan OROY | YES | 92.3% | 0.65% | $0.37 |
-| 7 | Jaxson Dart OROY | NO | 96.0% | 1.77% | $0.06 |
-| | **TOTAL** | | | | **$2.88** |
+| # | Market | Side | Price | Spread | Net Edge | Edge/Spread |
+|---|--------|------|-------|--------|----------|-------------|
+| 1 | 49ers Super Bowl | NO | 95.2% | 0.11% | 1.89% | **17.2x** |
+| 2 | Bears Super Bowl | NO | 94.5% | 0.11% | 1.89% | **17.2x** |
+| 3 | Texans Super Bowl | NO | 91.0% | 0.11% | 1.89% | **17.2x** |
+| 4 | 49ers NFC | NO | 90.4% | 0.22% | 1.78% | **8.1x** |
+| 5 | Rob Jetten NL PM | YES | 95.8% | 0.31% | 1.69% | **5.5x** |
+| 6 | McMillan OROY | YES | 92.3% | 0.65% | 1.35% | **2.1x** |
+
+**Win if all 6 correct:** +$11.02
+**Lose if any wrong:** -$15.81 to -$150.00
+
+### Why These 6?
+- All have Edge/Spread > 2x (margin of safety)
+- Jaxson Dart OROY excluded: Edge/Spread = 0.1x (too thin)
 
 ### Category Diversification
 
-| Category | Markets | E(X) |
-|----------|---------|------|
-| NFL Super Bowl | 3 | $1.52 |
-| NFL Conference | 1 | $0.49 |
-| NFL Rookie Awards | 2 | $0.43 |
-| International Politics | 1 | $0.44 |
+| Category | Trades | Correlation Risk |
+|----------|--------|------------------|
+| NFL Super Bowl | 3 | Correlated |
+| NFL Conference | 1 | Correlated |
+| NFL Rookie | 1 | Correlated |
+| International Politics | 1 | Independent |
+
+**Warning:** 5 of 6 trades are NFL-related. A single event (e.g., referee scandal, weather) could affect multiple outcomes.
 
 ---
 
 # EXPECTED VALUE ANALYSIS
 
-![E(X) Analysis](results/visualizations/expected_value_analysis.png)
+![E(X) Analysis](results/visualizations/advanced_risk_analysis.png)
 
-## E(X) Formula
+## Two Scenarios Compared
 
-```
-Net E(X) = Gross Edge - Spread
-E(X) per trade = $25 × Net Edge / Price
+This analysis shows BOTH scenarios with equal weight since the 2% edge is unvalidated:
 
-Where:
-  Gross Edge = 2% (from research, UNVALIDATED)
-  Spread = Actual bid-ask from order book
-```
+| Metric | IF 2% Edge | IF 0% Edge |
+|--------|------------|------------|
+| P(all 6 win) - independent | 74.3% | 65.4% |
+| P(all 6 win) - with 20% corr | **69.2%** | **58.5%** |
+| E(X) - independent | +$3.30 | -$0.01 |
+| E(X) - with 20% corr | **+$1.60** | **-$0.20** |
 
-## Portfolio Outcomes: 7 Trades
+## Outcome Distribution (with 20% correlation)
 
-**If ALL 7 win:** +$13.19 profit (+7.5% ROI)
-**If 6 win, 1 loses:** ~-$12 loss (-6.9% ROI)
-**If 5 win, 2 lose:** ~-$37 loss (-21% ROI)
+| Outcome | P (2% edge) | P (0% edge) | Profit |
+|---------|-------------|-------------|--------|
+| 6W/0L | **69.2%** | **58.5%** | +$11.02 |
+| 5W/1L | 26.8% | 33.7% | -$15.81 |
+| 4W/2L | 3.8% | 7.0% | -$42.65 |
+| 3W/3L | 0.3% | 0.7% | -$69.49 |
+| Worse | <0.1% | <0.1% | -$96 to -$150 |
 
-### Probability Analysis
+**Critical:** You must win ALL 6 to profit. One loss wipes gains and goes negative.
 
-| Wins | Probability (0% edge) | Probability (2% edge) | Profit |
-|------|----------------------|----------------------|--------|
-| 7/7 | 64.7% | 74.8% | +$13.19 |
-| 6/7 | 28.4% | 22.0% | ~-$12 |
-| 5/7 | 6.2% | 3.0% | ~-$37 |
-| <5 | 0.7% | 0.2% | worse |
+## E(X) Sensitivity
 
-**P(Profit) = P(7/7 wins)**
-- If market efficient: **64.7%**
-- If 2% edge exists: **74.8%**
+| Assumed Edge | E(X) | ROI | P(Profit) |
+|--------------|------|-----|-----------|
+| 0% (efficient) | -$0.20 | -0.1% | 58.5% |
+| 1% | +$0.70 | +0.5% | 63.5% |
+| **2% (research)** | **+$1.60** | **+1.1%** | **69.2%** |
+| 3% | +$2.50 | +1.7% | 74.5% |
+| 4% | +$3.40 | +2.3% | 79.5% |
 
-## E(X) by Edge Scenario
-
-| Assumed Edge | Total E(X) | ROI | P(Profit) |
-|--------------|------------|-----|-----------|
-| 0% (efficient) | $0.00 | 0.0% | 64.7% |
-| 1% | $1.44 | 0.8% | 69.5% |
-| **2%** | **$2.88** | **1.6%** | **74.8%** |
-| 3% | $4.32 | 2.5% | 79.8% |
-| 4% | $5.76 | 3.3% | 84.5% |
+All values assume 20% correlation adjustment for NFL clustering.
 
 ---
 
@@ -195,53 +200,62 @@ Where:
 
 ![Advanced Risk Analysis](results/visualizations/advanced_risk_analysis.png)
 
-## Probability Analysis (with 20% correlation adjustment)
+## Risk Metrics (with 20% correlation)
 
-| Metric | Independent | With Correlation |
-|--------|-------------|------------------|
-| P(all 6 win) | 65.4% | **58.5%** |
-| P(at least 1 loss) | 34.6% | **41.5%** |
-| Expected wins | 5.59 / 6 | 5.59 / 6 |
-| Expected losses | 0.41 / 6 | 0.49 / 6 |
-
-## Outcome Probability Distribution (Correlated)
-
-| Wins | Losses | P(indep) | P(corr) | Profit | E(X) Contribution |
-|------|--------|----------|---------|--------|-------------------|
-| 6 | 0 | 65.4% | **58.5%** | +$11.02 | +$6.45 |
-| 5 | 1 | 28.9% | **33.7%** | -$15.81 | -$5.33 |
-| 4 | 2 | 5.2% | **7.0%** | -$42.65 | -$2.97 |
-| 3 | 3 | 0.5% | 0.7% | -$69.49 | -$0.51 |
-| ≤2 | ≥4 | <0.1% | <0.1% | -$96 to -$150 | ~$0 |
-
-**Critical insight:** You need ALL 6 to win to profit. One loss wipes gains and goes negative.
-
-## Risk Metrics
-
-| Metric | Value |
-|--------|-------|
-| VaR 95% | -$42.65 |
-| VaR 99% | -$42.65 |
-| E(Loss \| Loss) | -$21.37 |
-| Max Drawdown | -$150 |
+| Metric | IF 2% Edge | IF 0% Edge |
+|--------|------------|------------|
+| P(profit) | 69.2% | 58.5% |
+| P(loss) | 30.8% | 41.5% |
+| E(X) | +$1.60 | -$0.20 |
+| VaR 95% | -$15.81 | -$42.65 |
+| VaR 99% | -$42.65 | -$42.65 |
+| E(Loss \| Loss) | -$19.57 | -$21.37 |
+| Max Loss | -$150 | -$150 |
 
 ## Correlation Impact
 
-5 of 6 trades are NFL-related. Correlation increases loss clustering:
+5 of 6 trades are NFL-related. Correlation adjustment increases loss probability:
 
-| Correlation | P(win) | P(loss) | E(L\|L) |
-|-------------|--------|---------|---------|
-| Independent | 65.4% | 34.6% | -$20.66 |
-| +10% corr | 62.0% | 38.0% | -$21.37 |
-| **+20% corr** | **58.5%** | **41.5%** | **-$21.37** |
-| +30% corr | 55.1% | 44.9% | -$21.37 |
+| Correlation | P(win) 2% edge | P(win) 0% edge | E(X) 2% edge |
+|-------------|----------------|----------------|--------------|
+| Independent | 74.3% | 65.4% | +$3.30 |
+| +10% corr | 71.8% | 62.0% | +$2.39 |
+| **+20% corr** | **69.2%** | **58.5%** | **+$1.60** |
+| +30% corr | 66.6% | 55.1% | +$0.82 |
 
 ## Position Sizing
 
 With $150 across 6 markets:
-- Max loss per market: $25 (17% of portfolio)
-- If all lose: $150 (100%)
-- Single loss impact: -$16 (wipes +$11 gain)
+- Capital per trade: $25 (17% of portfolio)
+- Win all 6: +$11.02 (+7.3% return)
+- Lose 1: -$15.81 (-10.5% return)
+- Max loss: -$150 (-100% of deployed capital)
+
+---
+
+# MONTE CARLO SIMULATION
+
+![Monte Carlo Results](results/visualizations/monte_carlo_simulation.png)
+
+## Single Round Results (10,000 simulations)
+
+| Scenario | P(profit) | E(X) | P5 | P50 | P95 |
+|----------|-----------|------|-----|-----|-----|
+| 2% edge, independent | 75.3% | +$3.67 | -$16 | +$11 | +$11 |
+| 2% edge, +20% corr | **68.5%** | **+$1.36** | -$16 | +$11 | +$11 |
+| 0% edge, independent | 65.8% | +$0.19 | -$43 | +$11 | +$11 |
+| 0% edge, +20% corr | **58.5%** | **-$2.37** | -$43 | +$11 | +$11 |
+
+## Multi-Round Projections (50 rounds, $1000 starting capital)
+
+| Scenario | Final Avg | Final Median | Max DD | P(Bust) |
+|----------|-----------|--------------|--------|---------|
+| 2% edge, independent | $1,164 | $1,176 | 6.5% | 0% |
+| 2% edge, +20% corr | **$1,081** | **$1,095** | **8.9%** | **0%** |
+| 0% edge, independent | $996 | $1,014 | 12.8% | 0% |
+| 0% edge, +20% corr | **$877** | **$880** | **19.6%** | **0%** |
+
+**Key Finding:** Without edge, capital decays ~12% over 50 rounds. With edge, capital grows ~8%.
 
 ---
 
@@ -251,16 +265,16 @@ With $150 across 6 markets:
 
 **Timeline:** NFL markets settle by Super Bowl (Feb 9, 2026). Rob Jetten market TBD.
 
-| Scenario | P(outcome) | Profit | Final Value |
-|----------|------------|--------|-------------|
-| All 6 win | 58.5% | +$11.02 | $161.02 |
-| 5 win, 1 lose | 33.7% | -$15.81 | $134.19 |
-| 4 win, 2 lose | 7.0% | -$42.65 | $107.35 |
-| Worse | <1% | -$69+ | <$81 |
+| Scenario | P (2% edge) | P (0% edge) | Profit |
+|----------|-------------|-------------|--------|
+| All 6 win | **69.2%** | **58.5%** | +$11.02 |
+| 5 win, 1 lose | 26.8% | 33.7% | -$15.81 |
+| 4 win, 2 lose | 3.8% | 7.0% | -$42.65 |
+| Worse | <1% | <1% | -$69+ |
 
 **Expected Value (with 20% correlation):**
-- If 2% edge exists: ~+$0.07 (barely positive)
-- If 0% edge: ~-$0.20 (spread cost)
+- If 2% edge exists: **+$1.60** per round
+- If 0% edge (efficient): **-$0.20** per round (spread cost)
 
 ---
 
@@ -303,10 +317,10 @@ With $150 across 6 markets:
 | File | Description |
 |------|-------------|
 | `advanced_risk_analysis.png` | **4-panel risk analysis with correlation** |
+| `monte_carlo_simulation.png` | **Monte Carlo: profit distribution & equity curves** |
+| `correlation_comparison.png` | **Correlation impact comparison** |
 | `honest_summary.png` | Market distribution by probability zone |
 | `honest_distribution.png` | Probability zone breakdown |
-| `expected_value_analysis.png` | E(X) scenarios and projections |
-| `specific_trades.png` | Trade-level analysis |
 
 ## Data Sources
 
