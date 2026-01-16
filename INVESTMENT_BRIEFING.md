@@ -9,13 +9,15 @@
 |--------|-------|
 | Markets Analyzed | 200 |
 | Markets in 90-96% Zone | 17 |
-| **Markets with Positive E(X)** | **7** |
-| Total E(X) (all 7) | $2.88 |
-| Capital Required | $175 |
-| Expected ROI | 1.6% over ~3-4 weeks |
-| Annualized ROI | ~21-28% |
+| **Trades with Edge/Spread > 2x** | **6** |
+| Capital Required | **$150** |
+| P(all 6 win) - independent | 65.4% |
+| P(all 6 win) - with correlation | **58.5%** |
+| P(at least 1 loss) | **41.5%** |
 
-**Strategy:** Exploit the favorite-longshot bias by buying high-probability outcomes where spread < theoretical edge.
+**Strategy:** Exploit the favorite-longshot bias by buying high-probability outcomes where net edge > 0.5%.
+
+**Bottom Line:** 59%/41% bet. Win all 6: +$11. Lose any: -$16 to -$150.
 
 ---
 
@@ -191,105 +193,100 @@ Where:
 
 # RISK ASSESSMENT
 
-## Hit Rate Analysis
+![Advanced Risk Analysis](results/visualizations/advanced_risk_analysis.png)
 
-| Metric | 0% Edge (Efficient) | 2% Edge (Bias Exists) |
-|--------|---------------------|----------------------|
-| Avg win probability | 93.6% | 95.6% |
-| Expected wins | 6.55 / 7 | 6.69 / 7 |
-| Expected losses | 0.45 / 7 | 0.31 / 7 |
-| P(all 7 win) | 62.8% | 72.8% |
-| **P(at least 1 loss)** | **37.2%** | **27.2%** |
+## Probability Analysis (with 20% correlation adjustment)
 
-## Outcome Probability Distribution
+| Metric | Independent | With Correlation |
+|--------|-------------|------------------|
+| P(all 6 win) | 65.4% | **58.5%** |
+| P(at least 1 loss) | 34.6% | **41.5%** |
+| Expected wins | 5.59 / 6 | 5.59 / 6 |
+| Expected losses | 0.41 / 6 | 0.49 / 6 |
 
-| Wins | Losses | Probability | Cumulative | Profit | E(X) Contribution |
-|------|--------|-------------|------------|--------|-------------------|
-| 7 | 0 | 62.8% | 100% | +$12.07 | +$7.58 |
-| 6 | 1 | 30.3% | 37.2% | -$14.66 | -$4.44 |
-| 5 | 2 | 6.1% | 6.9% | -$41.38 | -$2.54 |
-| 4 | 3 | 0.7% | 0.7% | -$68.11 | -$0.46 |
-| ≤3 | ≥4 | <0.1% | <0.1% | -$95 to -$175 | ~$0 |
+## Outcome Probability Distribution (Correlated)
 
-**Critical insight:** You need ALL 7 to win to profit. One loss puts you negative.
+| Wins | Losses | P(indep) | P(corr) | Profit | E(X) Contribution |
+|------|--------|----------|---------|--------|-------------------|
+| 6 | 0 | 65.4% | **58.5%** | +$11.02 | +$6.45 |
+| 5 | 1 | 28.9% | **33.7%** | -$15.81 | -$5.33 |
+| 4 | 2 | 5.2% | **7.0%** | -$42.65 | -$2.97 |
+| 3 | 3 | 0.5% | 0.7% | -$69.49 | -$0.51 |
+| ≤2 | ≥4 | <0.1% | <0.1% | -$96 to -$150 | ~$0 |
 
-## Maker vs Taker Positions
+**Critical insight:** You need ALL 6 to win to profit. One loss wipes gains and goes negative.
 
-| Scenario | Taker (Market Order) | Maker (Limit Order) |
-|----------|---------------------|---------------------|
-| E(X) with 0% edge | +$0.09 | +$0.52 |
-| E(X) with 2% edge | +$3.84 | +$4.27 |
-| ROI with 0% edge | +0.1% | +0.3% |
-| ROI with 2% edge | +2.2% | +2.4% |
+## Risk Metrics
 
-Maker orders eliminate spread costs but may not fill.
+| Metric | Value |
+|--------|-------|
+| VaR 95% | -$42.65 |
+| VaR 99% | -$42.65 |
+| E(Loss \| Loss) | -$21.37 |
+| Max Drawdown | -$150 |
 
-## Correlation Warning
+## Correlation Impact
 
-5 of 7 trades are NFL-related. These are NOT independent:
-- NFL labor dispute / lockout would affect all
-- Playoff seeding affects multiple teams
-- Award voting influenced by same narratives
+5 of 6 trades are NFL-related. Correlation increases loss clustering:
 
-**True P(at least 1 loss) is likely 40-45%** due to correlation, not 37.2%.
+| Correlation | P(win) | P(loss) | E(L\|L) |
+|-------------|--------|---------|---------|
+| Independent | 65.4% | 34.6% | -$20.66 |
+| +10% corr | 62.0% | 38.0% | -$21.37 |
+| **+20% corr** | **58.5%** | **41.5%** | **-$21.37** |
+| +30% corr | 55.1% | 44.9% | -$21.37 |
 
 ## Position Sizing
 
-With $175 across 7 markets:
-- Max loss per market: $25 (14% of portfolio)
-- If all lose: $175 (100%)
-- Kelly fraction suggests smaller sizing, but $25 minimum for practical trading
+With $150 across 6 markets:
+- Max loss per market: $25 (17% of portfolio)
+- If all lose: $150 (100%)
+- Single loss impact: -$16 (wipes +$11 gain)
 
 ---
 
 # PROJECTIONS
 
-## Single Round ($175 deployed, ~3-4 week settlement)
+## Single Round ($150 deployed, ~3-4 week settlement)
 
 **Timeline:** NFL markets settle by Super Bowl (Feb 9, 2026). Rob Jetten market TBD.
 
-| Scenario | E(X) | Final Value | ROI | Annualized |
-|----------|------|-------------|-----|------------|
-| All 7 win | +$13.19 | $188.19 | +7.5% | ~98-130% |
-| Expected (2% edge) | +$2.88 | $177.88 | +1.6% | ~21-28% |
-| Expected (0% edge) | $0.00 | $175.00 | 0.0% | 0% |
+| Scenario | P(outcome) | Profit | Final Value |
+|----------|------------|--------|-------------|
+| All 6 win | 58.5% | +$11.02 | $161.02 |
+| 5 win, 1 lose | 33.7% | -$15.81 | $134.19 |
+| 4 win, 2 lose | 7.0% | -$42.65 | $107.35 |
+| Worse | <1% | -$69+ | <$81 |
 
-## Multiple Rounds (if reinvesting)
-
-Assuming 2% edge and ~75% win rate per round:
-
-| Rounds | E(Capital) | P(Still Profitable) |
-|--------|------------|---------------------|
-| 1 | $177.88 | 74.8% |
-| 5 | $189.71 | ~60% |
-| 10 | $203.28 | ~50% |
-| 20 | $233.36 | ~40% |
-
-**Note:** Variance is high. A single loss in early rounds significantly impacts trajectory.
+**Expected Value (with 20% correlation):**
+- If 2% edge exists: ~+$0.07 (barely positive)
+- If 0% edge: ~-$0.20 (spread cost)
 
 ---
 
 # RECOMMENDATION
 
-## Execute Now
+## Execute Now (6 trades)
 
-| Market | Side | Amount |
-|--------|------|--------|
-| 49ers Super Bowl | NO @ 95.2% | $25 |
-| Bears Super Bowl | NO @ 94.5% | $25 |
-| Texans Super Bowl | NO @ 91.0% | $25 |
-| 49ers NFC | NO @ 90.4% | $25 |
-| Rob Jetten NL PM | YES @ 95.8% | $25 |
-| McMillan OROY | YES @ 92.3% | $25 |
-| Jaxson Dart OROY | NO @ 96.0% | $25 |
+| Market | Side | Price | Spread | Edge/Spread | Amount |
+|--------|------|-------|--------|-------------|--------|
+| 49ers Super Bowl | NO | 95.2% | 0.11% | 17.2x | $25 |
+| Bears Super Bowl | NO | 94.5% | 0.11% | 17.2x | $25 |
+| Texans Super Bowl | NO | 91.0% | 0.11% | 17.2x | $25 |
+| 49ers NFC | NO | 90.4% | 0.22% | 8.1x | $25 |
+| Rob Jetten NL PM | YES | 95.8% | 0.31% | 5.5x | $25 |
+| McMillan OROY | YES | 92.3% | 0.65% | 2.1x | $25 |
 
-**Total: $175**
+**Total: $150**
 
 ## Do Not Trade
 
-- McCaffrey Comeback (spread 2.15% > edge)
-- DOGE Cuts (spread 2.66% > edge)
-- All Protector of Year markets (spreads 8-18%)
+| Market | Reason |
+|--------|--------|
+| Jaxson Dart OROY | Edge/Spread = 0.1x (too thin) |
+| McCaffrey Comeback | Spread > edge |
+| DOGE Cuts | Spread > edge |
+| Protector of Year | Spreads 8-18% |
 
 ## Track These Metrics
 
@@ -305,6 +302,7 @@ Assuming 2% edge and ~75% win rate per round:
 
 | File | Description |
 |------|-------------|
+| `advanced_risk_analysis.png` | **4-panel risk analysis with correlation** |
 | `honest_summary.png` | Market distribution by probability zone |
 | `honest_distribution.png` | Probability zone breakdown |
 | `expected_value_analysis.png` | E(X) scenarios and projections |
