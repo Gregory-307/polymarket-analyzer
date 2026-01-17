@@ -148,6 +148,7 @@ class KalshiAdapter(BaseAdapter):
         active_only: bool = True,
         category: str | None = None,
         limit: int = 100,
+        exclude_sports_parlays: bool = True,
     ) -> list[Market]:
         """Fetch available markets from Kalshi.
 
@@ -155,6 +156,7 @@ class KalshiAdapter(BaseAdapter):
             active_only: Only return active markets.
             category: Filter by series ticker prefix.
             limit: Maximum markets to return.
+            exclude_sports_parlays: Exclude KXMVE* sports parlay markets.
 
         Returns:
             List of Market objects.
@@ -162,28 +164,50 @@ class KalshiAdapter(BaseAdapter):
         if not self._client:
             raise RuntimeError("Not connected. Call connect() first.")
 
-        params: dict[str, Any] = {"limit": limit}
+        # Fetch more than needed to account for filtering
+        fetch_limit = limit * 5 if exclude_sports_parlays else limit
+
+        params: dict[str, Any] = {"limit": fetch_limit}
         if active_only:
             params["status"] = "open"
         if category:
             params["series_ticker"] = category
 
         try:
-            response = await self._client.get(
-                f"{self.base_url}/markets",
-                params=params,
-            )
-            response.raise_for_status()
-            data = response.json()
+            all_markets = []
+            cursor = None
 
-            markets = []
-            for item in data.get("markets", []):
-                market = self._parse_market(item)
-                if market:
-                    markets.append(market)
+            # Paginate to get enough non-sports markets
+            while len(all_markets) < limit:
+                if cursor:
+                    params["cursor"] = cursor
 
-            logger.debug("kalshi_markets_fetched", count=len(markets))
-            return markets
+                response = await self._client.get(
+                    f"{self.base_url}/markets",
+                    params=params,
+                )
+                response.raise_for_status()
+                data = response.json()
+
+                for item in data.get("markets", []):
+                    # Skip sports parlays if requested
+                    ticker = item.get("ticker", "")
+                    if exclude_sports_parlays and ticker.startswith("KXMVE"):
+                        continue
+
+                    market = self._parse_market(item)
+                    if market:
+                        all_markets.append(market)
+
+                    if len(all_markets) >= limit:
+                        break
+
+                cursor = data.get("cursor")
+                if not cursor:
+                    break
+
+            logger.debug("kalshi_markets_fetched", count=len(all_markets))
+            return all_markets[:limit]
 
         except Exception as e:
             logger.error("kalshi_get_markets_failed", error=str(e))

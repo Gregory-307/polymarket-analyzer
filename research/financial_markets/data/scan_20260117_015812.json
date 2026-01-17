@@ -1,0 +1,32 @@
+{
+  "favorite_longshot": [],
+  "single_arb": [],
+  "multi_arb": [],
+  "cross_platform": [],
+  "financial_markets": [
+    {
+      "market_id": "0xbb57ccf5853a85487bc3d83d04d669310d28c6c810758953b9d9b91d1aee89d2",
+      "question": "Will bitcoin hit $1m before GTA VI?",
+      "platform": "polymarket",
+      "underlying": "BTC",
+      "threshold": 1000000.0,
+      "spot_price": 95448,
+      "market_price": 0.485,
+      "fair_value": 1.1617426465271308e-09,
+      "edge": -0.48499999883825734,
+      "edge_pct": -48.49999988382574,
+      "implied_vol": 0.55,
+      "direction": "SELL",
+      "strategy": "financial_markets"
+    }
+  ],
+  "summary": {
+    "total_markets": 500,
+    "poly_markets": 500,
+    "kalshi_markets": 0,
+    "timestamp": "2026-01-17T01:58:11.414597",
+    "strategy": "financial_markets",
+    "platform": "polymarket",
+    "price_threshold_markets": 1
+  }
+}

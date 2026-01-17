@@ -1,410 +1,180 @@
 # Polymarket Analyzer
 
-**Production-quality prediction market analysis toolkit for Polymarket and Kalshi.**
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-A comprehensive system for detecting arbitrage opportunities, exploiting behavioral biases, and analyzing market microstructure in prediction markets.
+**Quantitative analysis toolkit for prediction markets.** Detects mispriced contracts using behavioral bias research and correlation modeling across Polymarket and Kalshi.
 
-## Motivation
+> **Investment Briefings**: See [`briefings/`](briefings/) for strategy-specific analysis reports and recommendations.
 
-Prediction markets are among the most efficient mechanisms for aggregating information, yet systematic inefficiencies persist. This project implements research-backed strategies to identify and exploit these edges:
+## Quick Start
 
-1. **Favorite-Longshot Bias** - High-probability outcomes are systematically underpriced due to behavioral biases (Kahneman & Tversky, 1979)
-2. **Single-Condition Arbitrage** - When YES + NO ≠ $1.00, risk-free profit exists
-3. **Multi-Outcome Arbitrage** - Bundle strategies in markets with 3+ mutually exclusive outcomes
-4. **Cross-Platform Arbitrage** - Price discrepancies between Polymarket and Kalshi
+```bash
+pip install -r requirements.txt
+python run.py scan --strategy favorite_longshot
+```
 
-## Research Background
+**Or explore interactively:**
+```bash
+jupyter notebook exploration.ipynb
+```
 
-### Favorite-Longshot Bias
+---
 
-The well-documented behavioral phenomenon where:
-- **Long shots** (low probability) are systematically **overpriced**
-- **Favorites** (high probability) are systematically **underpriced**
+## The Edge
 
-**Source**: Prospect Theory (Kahneman & Tversky, 1979), NBER Working Paper 15923
+This toolkit exploits documented market inefficiencies:
 
-**Mechanism**: People overvalue small probabilities (lottery ticket mentality) and undervalue near-certainties. At extreme probabilities (>95% or <5%), the mispricing is most pronounced.
+| Strategy | Mechanism | Research Basis | Documented Returns |
+|----------|-----------|----------------|-------------------|
+| **Favorite-Longshot Bias** | High-probability outcomes are systematically underpriced | Prospect Theory (Kahneman & Tversky, 1979) | 2-5% edge per position |
+| **Single-Condition Arb** | YES + NO ≠ $1.00 creates risk-free profit | arXiv:2508.03474 | 1-3% per trade |
+| **Multi-Outcome Arb** | Bundle arbitrage across 3+ outcomes | $28.3M extracted historically | 1-5% per trade |
+| **Cross-Platform Arb** | Polymarket vs Kalshi price gaps | $40M+ extracted historically | 2-8% per trade |
 
-**Documented Returns**: Up to 1800% annualized using the "High-Probability Bond Strategy" (ChainCatcher, 2025)
+---
 
-### Arbitrage Opportunities
+## Sample Output
 
-Recent research ("Unravelling the Probabilistic Forest: Arbitrage in Prediction Markets", arXiv:2508.03474) documented:
-- **$28.3M** extracted via multi-outcome bundle arbitrage
-- **$40M+** extracted via cross-platform arbitrage
-- **2-8%** returns per trade on cross-platform opportunities
+```
+======================================================================
+TRADING SIGNALS - Favorite-Longshot Strategy
+======================================================================
 
-## Features
+Signal: STRONG
+  Market: Will the 49ers win Super Bowl 2026?
+  Side: NO @ 95.75%
+  Fair Value: 98.75%
+  Edge: 3.00%
+  Kelly Size: $100 (10% of bankroll)
+  Risk: LOW
 
-### Strategies
+Portfolio Summary:
+  STRONG Signals: 5
+  Average Edge: 1.87%
+  Expected ROI: 2.55%
+```
 
-| Strategy | Description | Risk Level | Expected Return |
-|----------|-------------|------------|-----------------|
-| `favorite_longshot` | Buy underpriced high-probability outcomes | Low-Medium | 5-15% per position |
-| `single_arb` | YES + NO < $1 arbitrage | Near-Zero | 1-3% per trade |
-| `multi_arb` | Bundle arbitrage on multi-outcome markets | Near-Zero | 1-5% per trade |
-| `cross_platform` | Polymarket vs Kalshi price discrepancies | Low | 2-8% per trade |
+See full analysis: [`output/reports/favorite_longshot_briefing.pdf`](output/reports/)
 
-### Microstructure Metrics
+---
 
-- **Order Book Imbalance (OBI)** - Buy/sell pressure indicator
-- **Liquidity Depth** - Available volume at price levels
-- **Spread Dynamics** - Bid-ask spread tracking and analysis
+## Project Structure
 
-### Platform Support
+```
+polymarket-analyzer/
+├── exploration.ipynb         # Interactive demo - START HERE
+├── run.py                    # CLI entry point
+├── briefings/                # Investment briefings per strategy
+│   ├── favorite_longshot_briefing.pdf
+│   └── single_arb_briefing.pdf
+├── src/
+│   ├── cli/                  # Command-line interface
+│   ├── adapters/             # Polymarket & Kalshi API clients
+│   ├── strategies/           # Trading strategy implementations
+│   ├── metrics/              # Order book analysis (OBI, liquidity, spread)
+│   └── scanners/             # Real-time opportunity detection
+├── output/                   # Generated artifacts (gitignored)
+│   ├── charts/               # Visualizations
+│   ├── data/                 # Trading signals
+│   └── backtests/            # Monte Carlo results
+├── tests/
+└── configs/
+```
 
-| Platform | Market Data | Trading | WebSocket |
-|----------|-------------|---------|-----------|
-| Polymarket | ✅ | ✅ | ✅ |
-| Kalshi | ✅ | ✅ | ✅ |
+---
+
+## CLI Reference
+
+```bash
+# Core commands
+python run.py connect                    # Test API connections
+python run.py markets --limit 50         # List active markets
+python run.py scan --strategy all        # Scan for opportunities
+python run.py signals --bankroll 1000    # Generate Kelly-sized signals
+python run.py backtest --simulations 100 # Monte Carlo backtest
+
+# Analysis
+python run.py analyze risk --correlation # Risk analysis with Gaussian copula
+python run.py analyze ev --bet-size 25   # Expected value by edge scenario
+python run.py analyze investigate        # Reality check with actual spreads
+
+# Reports
+python run.py report pdf --strategy favorite_longshot
+python run.py visualize dashboard
+```
+
+---
 
 ## Installation
 
 ```bash
-# Clone repository
 git clone https://github.com/Gregory-307/polymarket-analyzer.git
 cd polymarket-analyzer
-
-# Create virtual environment
 python -m venv venv
-source venv/bin/activate  # or `venv\Scripts\activate` on Windows
-
-# Install dependencies
+source venv/bin/activate  # or venv\Scripts\activate on Windows
 pip install -r requirements.txt
 
-# Configure credentials (optional, for trading)
+# Optional: Configure API keys for trading
 cp configs/credentials.env.example .env
-# Edit .env with your API keys
 ```
 
-## Live Scan Results
-
-The scanner successfully connects to Polymarket and identifies real opportunities. Sample output from a live scan:
-
-```
-======================================================================
-POLYMARKET ANALYSIS REPORT
-======================================================================
-
-SUMMARY STATISTICS
-----------------------------------------
-Total Markets Analyzed: 200
-Total Volume: $97,290,461
-Total Liquidity: $17,172,164
-Extreme Favorites (>95%): 138
-Tradeable Opportunities: 14
-
-TOP FAVORITE-LONGSHOT OPPORTUNITIES
-----------------------------------------
-1. Will DOGE cut less than $50b in federal spending in 2025?
-   YES @ 95.45% | Edge: 3.00% | Vol: $320,274
-
-2. Will the San Francisco 49ers win Super Bowl 2026?
-   NO @ 95.75% | Edge: 3.00% | Vol: $6,917,691
-
-3. Will Rob Jetten become the next Prime Minister of the Netherlands?
-   YES @ 95.85% | Edge: 3.00% | Vol: $702,249
-
-4. Will Trump deport 750,000+ people in 2025?
-   NO @ 96.60% | Edge: 2.40% | Vol: $402,134
-
-TRADING EDGE ANALYSIS
-----------------------------------------
-Based on Prospect Theory (Kahneman & Tversky, 1979):
-- High-probability outcomes resolve at higher rates than priced
-- Retail traders overweight longshots (lottery bias)
-- Systematic buying of favorites yields 2-5% edge
-
-Current Opportunities Found: 14
-Average Edge: 2.28%
-Maximum Edge: 3.00%
-Est. Addressable Opportunity: $112,527
-```
-
-## Trading Signals System
-
-Production-ready signal generation with Kelly Criterion position sizing:
-
-```
-==========================================================================
-           POLYMARKET TRADING SIGNALS GENERATOR
-                  Production-Ready System
-==========================================================================
-
-  Timestamp: 2026-01-16 01:08:26
-  Bankroll: $1,000.00
-  Analyzed: 200 markets
-  Signals Generated: 27
-
-======================================================================
-  TRADING SIGNAL: STRONG
-======================================================================
-
-  Market: Will the San Francisco 49ers win Super Bowl 2026?
-
-  +------------------------------+-----------------------------------+
-  | Side                         |                                NO |
-  | Current Price                |                           95.75% |
-  | Fair Value (Est.)            |                           98.75% |
-  | Edge                         |                            3.00% |
-  | Confidence                   |                              85% |
-  +------------------------------+-----------------------------------+
-  | Kelly Fraction               |                           35.29% |
-  | Recommended Size             |                           10.00% |
-  | Dollar Amount                |                          $100.00 |
-  +------------------------------+-----------------------------------+
-  | Risk Level                   |                               LOW |
-  | Liquidity                    |                       $1,316,127 |
-  +------------------------------+-----------------------------------+
-
-======================================================================
-  PORTFOLIO SUMMARY
-======================================================================
-
-  STRONG Signals: 5
-  MODERATE Signals: 10
-  Average Edge: 1.87%
-  Expected Profit (Top 10 signals): $25.45
-  Expected ROI: 2.55%
-```
+---
 
 ## Backtest Results
 
-Monte Carlo simulation validating the favorite-longshot bias strategy:
+Monte Carlo simulation (100 runs, 140 high-probability markets):
 
-```
-======================================================================
-BACKTEST RESULTS (100 Simulations, 140 Markets)
-======================================================================
+| Metric | Value |
+|--------|-------|
+| Win Rate | 98.9% |
+| Prob. Profitable | 54% |
+| Median Return | +0.49% |
+| Sharpe Ratio | 1.08 |
+| 5th Percentile | -14.4% |
+| 95th Percentile | +6.25% |
 
-RETURN STATISTICS:
-  Average Return:    -2.07%
-  Median Return:      0.49%
-  Best Return:        6.25%
-  Worst Return:     -22.87%
+The high win rate validates the favorite-longshot bias. Negative tail risk emphasizes the importance of position sizing (Kelly Criterion).
 
-RISK METRICS:
-  Prob. Profitable:   54.0%
-  Average Win Rate:   98.9%
-  Avg Max Drawdown:    6.7%
-  Avg Sharpe Ratio:   1.08
+---
 
-RETURN PERCENTILES:
-  5th percentile:   -14.40%  (worst case)
-  50th percentile:    0.49%  (median)
-  95th percentile:    6.25%  (best case)
-```
-
-Key insights:
-- **98.9% win rate** validates the high-probability strategy
-- **1.08 Sharpe ratio** indicates solid risk-adjusted returns
-- Negative average vs positive median shows black swan risk (position sizing critical)
-
-## Visualization Gallery
-
-The toolkit generates professional visualizations:
-
-| Visualization | Description |
-|--------------|-------------|
-| `dashboard_summary.png` | Executive dashboard with KPIs |
-| `probability_distribution.png` | Market price distribution with opportunity zones |
-| `edge_opportunities.png` | Scatter plot of edge vs probability |
-| `strategy_comparison.png` | Research-backed strategy infographic |
-| `market_heatmap.png` | Volume/probability heatmap |
-| `research_infographic.png` | Full research citations & methodology |
-| `backtest_results.png` | Monte Carlo simulation results |
-
-Generate all visualizations:
-```bash
-python create_visualizations.py
-```
-
-## Quick Start
-
-### Test Connections
-
-```bash
-python run.py test-connection
-```
-
-### List Active Markets
-
-```bash
-python run.py markets --limit 20
-```
-
-### Scan for Opportunities
-
-```bash
-# Scan all strategies
-python run.py scan
-
-# Scan specific strategy
-python run.py scan --strategy favorite_longshot
-python run.py scan --strategy single_arb
-```
-
-### Programmatic Usage
+## API Usage
 
 ```python
 import asyncio
 from src.adapters import PolymarketAdapter
-from src.strategies import FavoriteLongshotStrategy, SingleConditionArbitrage
+from src.strategies import FavoriteLongshotStrategy
 
 async def main():
-    # Connect to Polymarket
     adapter = PolymarketAdapter()
     await adapter.connect()
 
-    # Fetch markets
     markets = await adapter.get_markets(limit=100)
 
-    # Scan for favorite-longshot opportunities
-    strategy = FavoriteLongshotStrategy(min_probability=0.95, min_edge=0.01)
-    opportunities = strategy.scan(markets)
-
-    for opp in opportunities:
-        print(f"[{opp.side}] {opp.market.question}")
-        print(f"  Price: {opp.current_price:.2%}")
-        print(f"  Fair Value: {opp.estimated_fair_value:.2%}")
-        print(f"  Edge: {opp.edge:.2%}")
-
-    # Scan for arbitrage
-    arb = SingleConditionArbitrage()
-    arb_opps = arb.scan(markets)
-
-    for opp in arb_opps:
-        print(f"[{opp.action}] {opp.market.question}")
-        print(f"  YES: {opp.yes_price:.2%} + NO: {opp.no_price:.2%} = {opp.sum_prices:.2%}")
-        print(f"  Profit: {opp.profit_pct:.2%}")
+    strategy = FavoriteLongshotStrategy(min_probability=0.95)
+    for market in markets:
+        opp = strategy.check_market(market)
+        if opp:
+            print(f"{opp.side} @ {opp.current_price:.1%} | Edge: {opp.edge:.2%}")
 
     await adapter.disconnect()
 
 asyncio.run(main())
 ```
 
-## Architecture
+---
 
-```
-polymarket-analyzer/
-├── src/
-│   ├── adapters/           # Platform API adapters
-│   │   ├── base.py        # Abstract base class
-│   │   ├── polymarket.py  # Polymarket CLOB client
-│   │   └── kalshi.py      # Kalshi API client
-│   │
-│   ├── strategies/         # Trading strategies
-│   │   ├── favorite_longshot.py  # Bias exploitation
-│   │   ├── single_arb.py  # YES+NO arbitrage
-│   │   └── multi_arb.py   # Bundle arbitrage
-│   │
-│   ├── metrics/            # Microstructure analysis
-│   │   ├── order_imbalance.py
-│   │   ├── liquidity_depth.py
-│   │   └── spread_dynamics.py
-│   │
-│   ├── scanners/           # Real-time monitoring
-│   │   └── arb_scanner.py
-│   │
-│   └── core/               # Configuration & utilities
-│       ├── config.py
-│       └── utils.py
-│
-├── analysis/               # Backtesting & research
-├── configs/                # Configuration files
-├── results/                # Output directory
-└── tests/                  # Test suite
-```
-
-## Configuration
-
-Edit `configs/default.json` to customize:
-
-```json
-{
-  "strategies": {
-    "favorite_longshot": {
-      "enabled": true,
-      "min_probability": 0.95,
-      "min_edge": 0.01,
-      "max_position_usd": 1000
-    },
-    "single_arb": {
-      "enabled": true,
-      "min_profit_usd": 0.50
-    }
-  }
-}
-```
-
-## API Reference
-
-### Adapters
-
-```python
-# Initialize adapter
-adapter = PolymarketAdapter(credentials=Credentials.from_env())
-await adapter.connect()
-
-# Market data
-markets = await adapter.get_markets(active_only=True, limit=100)
-market = await adapter.get_market(market_id)
-order_book = await adapter.get_order_book(token_id)
-yes_price, no_price = await adapter.get_price(token_id)
-
-# Trading (requires authentication)
-order = await adapter.place_order(market_id, Side.BUY, 0.55, 10)
-await adapter.cancel_order(order_id)
-```
-
-### Strategies
-
-```python
-# Favorite-Longshot Bias
-strategy = FavoriteLongshotStrategy(min_probability=0.95, min_edge=0.01)
-opportunities = strategy.scan(markets)
-position_size = strategy.calculate_position_size(opp, balance, max_risk=0.05)
-
-# Arbitrage Detection
-arb = SingleConditionArbitrage(min_profit_pct=0.005)
-opportunities = arb.scan(markets)
-execution = arb.calculate_execution(opp, position_size_usd=100)
-```
-
-### Metrics
-
-```python
-# Order Imbalance
-obi = OrderImbalanceMetric(threshold_bullish=0.3)
-reading = obi.calculate(order_book)
-print(f"Imbalance: {reading.imbalance:.2f} ({reading.signal})")
-
-# Liquidity Depth
-depth = LiquidityDepthMetric(levels=[0.01, 0.02, 0.05])
-profile = depth.analyze(order_book)
-slippage = depth.estimate_slippage(order_book, 1000, is_buy=True)
-```
-
-## Risk Considerations
-
-1. **Black Swan Risk** - High-probability events can still fail; position sizing is critical
-2. **Execution Risk** - Slippage and partial fills may reduce arbitrage profits
-3. **Settlement Risk** - Different platforms may have different resolution criteria
-4. **API Rate Limits** - Respect platform rate limits to avoid bans
-5. **Platform Terms** - Ensure compliance with Terms of Service
-
-## References
+## Research References
 
 - Kahneman, D., & Tversky, A. (1979). Prospect Theory: An Analysis of Decision under Risk
 - Snowberg, E., & Wolfers, J. (2010). Explaining the Favorite-Long Shot Bias. NBER Working Paper 15923
-- Saguillo, O., et al. (2025). Unravelling the Probabilistic Forest: Arbitrage in Prediction Markets. arXiv:2508.03474
-- Polymarket Documentation: https://docs.polymarket.com/
-- Kalshi Documentation: https://docs.kalshi.com/
+- Saguillo, O., et al. (2025). Unravelling the Probabilistic Forest. arXiv:2508.03474
+
+---
 
 ## License
 
 MIT License - See LICENSE file for details.
 
-## Disclaimer
-
-This software is for educational and research purposes. Trading in prediction markets involves risk of loss. Past performance does not guarantee future results. Always do your own research and never trade with money you cannot afford to lose.
+**Disclaimer**: This software is for educational and research purposes. Trading involves risk of loss. Past performance does not guarantee future results.

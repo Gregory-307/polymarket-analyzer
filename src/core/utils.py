@@ -11,12 +11,12 @@ from typing import Any
 import structlog
 
 
-def setup_logging(level: str = "INFO", format: str = "console") -> None:
+def setup_logging(level: str = "INFO", log_format: str = "console") -> None:
     """Configure structured logging.
 
     Args:
         level: Log level (DEBUG, INFO, WARNING, ERROR).
-        format: Output format ('console' or 'json').
+        log_format: Output format ('console' or 'json').
     """
     # Configure standard library logging
     logging.basicConfig(
@@ -36,7 +36,7 @@ def setup_logging(level: str = "INFO", format: str = "console") -> None:
         structlog.processors.UnicodeDecoder(),
     ]
 
-    if format == "json":
+    if log_format == "json":
         processors.append(structlog.processors.JSONRenderer())
     else:
         processors.append(structlog.dev.ConsoleRenderer())

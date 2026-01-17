@@ -1,0 +1,14 @@
+{
+  "favorite_longshot": [],
+  "single_arb": [],
+  "multi_arb": [],
+  "cross_platform": [],
+  "summary": {
+    "total_markets": 200,
+    "poly_markets": 100,
+    "kalshi_markets": 100,
+    "timestamp": "2026-01-17T01:34:27.098791",
+    "strategy": "cross_platform",
+    "platform": "all"
+  }
+}
