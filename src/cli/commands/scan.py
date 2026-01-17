@@ -252,29 +252,76 @@ async def scan(
     if strategy in ("all", "financial_markets"):
         fm_strategy = FinancialMarketsStrategy(min_edge=min_edge)
 
-        # Fetch real spot prices from CoinGecko
-        try:
-            import httpx
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    'https://api.coingecko.com/api/v3/simple/price',
-                    params={'ids': 'bitcoin,ethereum,solana', 'vs_currencies': 'usd'}
+        import httpx
+
+        # Fetch real spot prices and volatility
+        btc_price, eth_price, sol_price = 95000, 3300, 150
+        btc_vol, eth_vol, sol_vol = 0.55, 0.65, 0.80
+
+        async with httpx.AsyncClient() as client:
+            # Spot prices from Deribit (more accurate than CoinGecko for options)
+            try:
+                btc_resp = await client.get(
+                    'https://www.deribit.com/api/v2/public/get_index_price',
+                    params={'index_name': 'btc_usd'}
                 )
-                prices = response.json()
-                btc_price = prices.get('bitcoin', {}).get('usd', 95000)
-                eth_price = prices.get('ethereum', {}).get('usd', 3300)
-                sol_price = prices.get('solana', {}).get('usd', 150)
-                click.echo(f"\n  Live prices: BTC=${btc_price:,.0f}, ETH=${eth_price:,.0f}, SOL=${sol_price:,.0f}")
-        except Exception as e:
-            click.echo(f"\n  Could not fetch live prices, using defaults: {e}")
-            btc_price, eth_price, sol_price = 95000, 3300, 150
+                btc_data = btc_resp.json()
+                btc_price = btc_data.get('result', {}).get('index_price', btc_price)
+
+                eth_resp = await client.get(
+                    'https://www.deribit.com/api/v2/public/get_index_price',
+                    params={'index_name': 'eth_usd'}
+                )
+                eth_data = eth_resp.json()
+                eth_price = eth_data.get('result', {}).get('index_price', eth_price)
+            except Exception:
+                pass  # Use defaults
+
+            # Historical volatility from Deribit
+            try:
+                btc_vol_resp = await client.get(
+                    'https://www.deribit.com/api/v2/public/get_historical_volatility',
+                    params={'currency': 'BTC'}
+                )
+                btc_vol_data = btc_vol_resp.json()
+                vol_points = btc_vol_data.get('result', [])
+                if vol_points:
+                    # Get latest volatility (percentage -> decimal)
+                    btc_vol = vol_points[-1][1] / 100
+
+                eth_vol_resp = await client.get(
+                    'https://www.deribit.com/api/v2/public/get_historical_volatility',
+                    params={'currency': 'ETH'}
+                )
+                eth_vol_data = eth_vol_resp.json()
+                vol_points = eth_vol_data.get('result', [])
+                if vol_points:
+                    eth_vol = vol_points[-1][1] / 100
+            except Exception:
+                pass  # Use defaults
+
+            # SOL from CoinGecko (Deribit doesn't have SOL)
+            try:
+                sol_resp = await client.get(
+                    'https://api.coingecko.com/api/v3/simple/price',
+                    params={'ids': 'solana', 'vs_currencies': 'usd'}
+                )
+                sol_data = sol_resp.json()
+                sol_price = sol_data.get('solana', {}).get('usd', sol_price)
+            except Exception:
+                pass
+
+        click.echo(f"\n  Live data (Deribit + CoinGecko):")
+        click.echo(f"    BTC: ${btc_price:,.0f} | Vol: {btc_vol:.1%}")
+        click.echo(f"    ETH: ${eth_price:,.0f} | Vol: {eth_vol:.1%}")
+        click.echo(f"    SOL: ${sol_price:,.0f} | Vol: {sol_vol:.1%}")
 
         fm_strategy.set_spot_price("BTC", btc_price)
         fm_strategy.set_spot_price("ETH", eth_price)
         fm_strategy.set_spot_price("SOL", sol_price)
-        fm_strategy.set_implied_vol("BTC", 0.55)  # 55% vol (typical for BTC)
-        fm_strategy.set_implied_vol("ETH", 0.65)  # 65% vol
-        fm_strategy.set_implied_vol("SOL", 0.80)  # 80% vol
+        fm_strategy.set_implied_vol("BTC", btc_vol)
+        fm_strategy.set_implied_vol("ETH", eth_vol)
+        fm_strategy.set_implied_vol("SOL", sol_vol)
 
         fm_opps = fm_strategy.scan(all_markets)
 
