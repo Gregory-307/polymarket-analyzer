@@ -1,62 +1,71 @@
 # Polymarket Analyzer
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Tests](https://img.shields.io/badge/tests-19%20passed-brightgreen.svg)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-**Quantitative analysis toolkit for prediction markets.** Detects mispriced contracts using behavioral bias research and correlation modeling across Polymarket and Kalshi.
+**Quantitative analysis toolkit for prediction markets.** Implements 4 trading strategies to detect mispriced contracts across Polymarket and Kalshi using behavioral finance research and options pricing theory.
 
-> **Investment Briefings**: See [`briefings/`](briefings/) for strategy-specific analysis reports and recommendations.
+## Features
+
+- **Live market data** from Polymarket and Kalshi APIs
+- **4 implemented strategies** with real-time scanning
+- **Kelly Criterion** position sizing with risk controls
+- **Gaussian Copula** correlation modeling for portfolio risk
+- **Black-Scholes** fair value for crypto price threshold markets
+
+> **Strategy Briefings**: See [`briefings/`](briefings/) for detailed analysis per strategy.
 
 ## Quick Start
 
 ```bash
 pip install -r requirements.txt
-python run.py scan --strategy favorite_longshot
+python run.py scan --strategy all
 ```
 
-**Or explore interactively:**
-```bash
-jupyter notebook exploration.ipynb
-```
+## Strategies
 
----
-
-## The Edge
-
-This toolkit exploits documented market inefficiencies:
-
-| Strategy | Mechanism | Research Basis | Documented Returns |
-|----------|-----------|----------------|-------------------|
-| **Favorite-Longshot Bias** | High-probability outcomes are systematically underpriced | Prospect Theory (Kahneman & Tversky, 1979) | 2-5% edge per position |
-| **Single-Condition Arb** | YES + NO ≠ $1.00 creates risk-free profit | arXiv:2508.03474 | 1-3% per trade |
-| **Multi-Outcome Arb** | Bundle arbitrage across 3+ outcomes | $28.3M extracted historically | 1-5% per trade |
-| **Cross-Platform Arb** | Polymarket vs Kalshi price gaps | $40M+ extracted historically | 2-8% per trade |
+| Strategy | Mechanism | Status |
+|----------|-----------|--------|
+| **Favorite-Longshot** | High-probability outcomes underpriced due to behavioral bias | Implemented |
+| **Single-Condition Arb** | YES + NO ≠ $1.00 creates risk-free profit | Implemented |
+| **Cross-Platform** | Polymarket vs Kalshi price discrepancies | Implemented |
+| **Financial Markets** | Compare prediction markets to Black-Scholes fair value | Implemented |
 
 ---
 
 ## Sample Output
 
 ```
-======================================================================
-TRADING SIGNALS - Favorite-Longshot Strategy
-======================================================================
+$ python run.py scan --strategy favorite_longshot
 
-Signal: STRONG
-  Market: Will the 49ers win Super Bowl 2026?
-  Side: NO @ 95.75%
-  Fair Value: 98.75%
-  Edge: 3.00%
-  Kelly Size: $100 (10% of bankroll)
-  Risk: LOW
+======================================================================
+  OPPORTUNITY SCANNER
+======================================================================
+  Strategy: favorite_longshot
+  Platform: polymarket
+  Min Edge: 1.00%
 
-Portfolio Summary:
-  STRONG Signals: 5
-  Average Edge: 1.87%
-  Expected ROI: 2.55%
+----------------------------------------------------------------------
+  FAVORITE-LONGSHOT OPPORTUNITIES
+----------------------------------------------------------------------
+
+  Will tariffs generate >$250b in 2025?
+    NO @ 97.00% | Edge: 2.00% (MEDIUM) | Vol: $1,062,205
+
+  Will Trump deport less than 250,000?
+    NO @ 96.85% | Edge: 1.92% (LOW) | Vol: $959,251
+
+  Will Elon and DOGE cut less than $50b in federal spending?
+    YES @ 96.10% | Edge: 1.55% (LOW) | Vol: $320,416
+
+  Will the San Francisco 49ers win Super Bowl 2026?
+    NO @ 95.25% | Edge: 1.12% (LOW) | Vol: $7,080,133
+
+----------------------------------------------------------------------
+  Summary: 7 opportunities found
+----------------------------------------------------------------------
 ```
-
-See full analysis: [`output/reports/favorite_longshot_briefing.pdf`](output/reports/)
 
 ---
 
@@ -64,23 +73,26 @@ See full analysis: [`output/reports/favorite_longshot_briefing.pdf`](output/repo
 
 ```
 polymarket-analyzer/
-├── exploration.ipynb         # Interactive demo - START HERE
 ├── run.py                    # CLI entry point
-├── briefings/                # Investment briefings per strategy
-│   ├── favorite_longshot_briefing.pdf
-│   └── single_arb_briefing.pdf
+├── briefings/                # Strategy analysis reports
+│   ├── favorite_longshot_briefing.md
+│   ├── arbitrage_briefing.md
+│   ├── cross_platform_briefing.md
+│   └── financial_markets_briefing.md
+├── research/                 # Raw scan data and findings
+│   ├── arbitrage/
+│   ├── cross_platform/
+│   ├── favorite_longshot/
+│   └── financial_markets/
 ├── src/
 │   ├── cli/                  # Command-line interface
 │   ├── adapters/             # Polymarket & Kalshi API clients
 │   ├── strategies/           # Trading strategy implementations
-│   ├── metrics/              # Order book analysis (OBI, liquidity, spread)
-│   └── scanners/             # Real-time opportunity detection
-├── output/                   # Generated artifacts (gitignored)
-│   ├── charts/               # Visualizations
-│   ├── data/                 # Trading signals
-│   └── backtests/            # Monte Carlo results
-├── tests/
-└── configs/
+│   ├── metrics/              # Order book analysis
+│   └── scanners/             # Opportunity detection
+├── output/                   # Generated results
+├── tests/                    # Unit tests (19 passing)
+└── configs/                  # Configuration files
 ```
 
 ---
@@ -122,46 +134,60 @@ cp configs/credentials.env.example .env
 
 ---
 
-## Backtest Results
-
-Monte Carlo simulation (100 runs, 140 high-probability markets):
-
-| Metric | Value |
-|--------|-------|
-| Win Rate | 98.9% |
-| Prob. Profitable | 54% |
-| Median Return | +0.49% |
-| Sharpe Ratio | 1.08 |
-| 5th Percentile | -14.4% |
-| 95th Percentile | +6.25% |
-
-The high win rate validates the favorite-longshot bias. Negative tail risk emphasizes the importance of position sizing (Kelly Criterion).
-
----
-
 ## API Usage
 
 ```python
 import asyncio
-from src.adapters import PolymarketAdapter
-from src.strategies import FavoriteLongshotStrategy
+from src.adapters import PolymarketAdapter, KalshiAdapter
+from src.strategies import FavoriteLongshotStrategy, CrossPlatformStrategy
 
 async def main():
-    adapter = PolymarketAdapter()
-    await adapter.connect()
+    # Connect to prediction markets
+    poly = PolymarketAdapter()
+    kalshi = KalshiAdapter()
 
-    markets = await adapter.get_markets(limit=100)
+    await poly.connect()
+    await kalshi.connect()
 
-    strategy = FavoriteLongshotStrategy(min_probability=0.95)
+    # Scan for favorite-longshot opportunities
+    markets = await poly.get_markets(limit=100)
+    strategy = FavoriteLongshotStrategy(min_probability=0.95, min_edge=0.01)
+
     for market in markets:
         opp = strategy.check_market(market)
         if opp:
             print(f"{opp.side} @ {opp.current_price:.1%} | Edge: {opp.edge:.2%}")
 
-    await adapter.disconnect()
+            # Calculate position size with Kelly Criterion
+            size = strategy.calculate_position_size(opp, account_balance=10000)
+            print(f"  Recommended size: ${size:.2f}")
+
+    await poly.disconnect()
+    await kalshi.disconnect()
 
 asyncio.run(main())
 ```
+
+---
+
+## Key Findings (January 2026 Scans)
+
+Real scans with live market data revealed:
+
+| Strategy | Markets Scanned | Result |
+|----------|-----------------|--------|
+| Favorite-Longshot | 100 | 7 opportunities, 1.5% avg edge |
+| Single-Condition Arb | 500 | 0 opportunities (markets efficient) |
+| Cross-Platform | 200 | 0 matches (no market overlap) |
+| Financial Markets | 500 | 1 market found (BTC $1M) |
+
+**Notable findings:**
+- Polymarket and Kalshi have minimal market overlap (Kalshi focuses on sports)
+- Single-condition arbitrage opportunities are rare (markets internally consistent)
+- Favorite-longshot bias is most actionable strategy with consistent edge
+- Crypto price threshold markets are scarce but can be valued with Black-Scholes
+
+See [`research/`](research/) for raw scan data and detailed findings.
 
 ---
 

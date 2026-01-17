@@ -169,14 +169,15 @@ class FavoriteLongshotStrategy:
 
         # Adjustment for favorite-longshot bias
         # At high probabilities, markets tend to underprice favorites
-        # This adjustment is based on research findings
+        # Research shows 1-3% underpricing at extreme probabilities
         if current_price >= 0.95:
             # High favorites are typically underpriced by 1-3%
-            bias_adjustment = 0.02 * (current_price - 0.90)
+            # Base 1% adjustment + additional for more extreme prices
+            bias_adjustment = 0.01 + 0.5 * (current_price - 0.95)
             adjusted = min(0.99, base_estimate + bias_adjustment)
         elif current_price <= 0.05:
-            # Long shots are typically overpriced
-            bias_adjustment = -0.02 * (0.10 - current_price)
+            # Long shots are typically overpriced by similar margin
+            bias_adjustment = -0.01 - 0.5 * (0.05 - current_price)
             adjusted = max(0.01, base_estimate + bias_adjustment)
         else:
             # Middle range - less bias
