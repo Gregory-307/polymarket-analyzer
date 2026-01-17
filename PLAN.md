@@ -1,20 +1,20 @@
 # Polymarket Analyzer - Real Work Plan
 
-**Last Updated**: January 17, 2026 (All strategies implemented)
+**Last Updated**: January 17, 2026 (All strategies complete with live data)
 
 ## Current State
 
-### All 4 Strategies Implemented
+### All 4 Strategies Fully Implemented
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Polymarket adapter | ✅ Live data | Can fetch markets, order books, prices |
-| Kalshi adapter | ✅ Live data | Can fetch markets, order books, prices |
-| Favorite-Longshot strategy | ✅ Implemented | Real briefing with copula analysis |
-| Single-Arb strategy | ✅ Implemented | Real scan run, 0 opportunities found |
-| Multi-Arb strategy | ⚠️ Partial | Code exists but grouped market fetching incomplete |
-| Cross-Platform strategy | ✅ Implemented | Market matching works, API filtering needed |
-| Financial Markets strategy | ✅ Implemented | Black-Scholes works, needs live data feeds |
+| Polymarket adapter | ✅ Live data | Markets, events, order books, prices |
+| Kalshi adapter | ✅ Live data | Markets, order books, prices |
+| Favorite-Longshot strategy | ✅ Complete | 14 opportunities found, 1-2% avg edge |
+| Single-Arb strategy | ✅ Complete | Working, 0 opportunities (markets efficient) |
+| Multi-Arb strategy | ✅ Complete | Event groups scanning implemented |
+| Cross-Platform strategy | ✅ Complete | Working, 0 matches (no market overlap) |
+| Financial Markets strategy | ✅ Complete | Deribit API for live spot/vol |
 
 ### Critical Gap: No Historical Data
 - APIs only provide live snapshots
@@ -100,17 +100,16 @@ research/
 
 ## Remaining Work
 
-### High Priority
-1. **Improve Kalshi filtering** - Exclude sports parlays, target political markets
-2. **Integrate Deribit API** - Get real spot prices and implied vol
+### Completed
+1. ✅ **Kalshi filtering** - Sports parlays excluded
+2. ✅ **Deribit API** - Live spot prices and historical volatility
+3. ✅ **Multi-outcome arbitrage** - Event groups scanning implemented
 
-### Medium Priority
-3. **More scans over time** - Build dataset of opportunities
-4. **Multi-outcome arbitrage** - Enable grouped market fetching
-
-### Low Priority
-5. **Historical data** - Would need to build own database
-6. **CME FedWatch** - For rate market fair values
+### Future Enhancements
+1. **More scans over time** - Build dataset of opportunities
+2. **Historical data** - Would need to build own database
+3. **CME FedWatch** - For rate market fair values
+4. **Implied vol from options chain** - Better than historical vol
 
 ---
 
