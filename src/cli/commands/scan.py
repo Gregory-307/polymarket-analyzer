@@ -189,10 +189,41 @@ async def scan(
                     "strategy": "single_arb",
                 })
 
-    # Multi-arb requires grouped market data (TODO: implement in Phase 3)
+    # Multi-outcome arbitrage on grouped markets
     if strategy in ("all", "multi_arb"):
-        # Multi-arb scanning will be enabled in Phase 3
-        pass
+        multi_arb = MultiOutcomeArbitrage(min_profit_pct=min_edge)
+
+        # Fetch events (grouped markets) from Polymarket
+        if platform in ("all", "polymarket"):
+            click.echo("\n  Fetching Polymarket events for multi-arb...")
+            try:
+                poly_adapter = PolymarketAdapter(credentials=creds)
+                await poly_adapter.connect()
+                events = await poly_adapter.get_events(limit=limit)
+                await poly_adapter.disconnect()
+
+                for event in events:
+                    opp = multi_arb.scan_polymarket_group(event)
+                    if opp:
+                        opportunities["multi_arb"].append({
+                            "market_id": opp.market_id,
+                            "question": opp.question,
+                            "platform": opp.platform,
+                            "action": opp.action,
+                            "num_outcomes": opp.num_outcomes,
+                            "sum_prices": opp.sum_prices,
+                            "profit_pct": opp.profit_pct,
+                            "profit_usd": opp.profit_usd,
+                            "outcomes": [
+                                {"name": o.outcome_name, "price": o.price}
+                                for o in opp.outcomes
+                            ],
+                            "strategy": "multi_arb",
+                        })
+
+                click.echo(f"  Scanned {len(events)} events")
+            except Exception as e:
+                click.echo(f"  Error fetching events: {e}", err=True)
 
     # Scan for cross-platform arbitrage
     if strategy in ("all", "cross_platform"):
@@ -296,6 +327,7 @@ def _print_scan_results(opportunities: dict, min_edge: float) -> None:
     """Print scan results in table format."""
     fl_opps = opportunities["favorite_longshot"]
     arb_opps = opportunities["single_arb"]
+    multi_opps = opportunities.get("multi_arb", [])
     cp_opps = opportunities.get("cross_platform", [])
     fm_opps = opportunities.get("financial_markets", [])
 
@@ -326,6 +358,19 @@ def _print_scan_results(opportunities: dict, min_edge: float) -> None:
             click.echo(f"    YES + NO = {opp['sum_prices']:.3f} | "
                       f"Profit: {format_price(opp['profit_pct'])} | "
                       f"Vol: {format_usd(opp.get('volume', 0))}")
+
+    # Multi-Outcome Arb
+    if multi_opps:
+        print_subheader("MULTI-OUTCOME ARBITRAGE")
+
+        # Sort by profit
+        multi_opps.sort(key=lambda x: x["profit_pct"], reverse=True)
+
+        for opp in multi_opps[:10]:
+            question = opp["question"][:50]
+            click.echo(f"\n  {question}")
+            click.echo(f"    {opp['num_outcomes']} outcomes | Sum: {opp['sum_prices']:.3f}")
+            click.echo(f"    Action: {opp['action']} | Profit: {format_price(opp['profit_pct'])}")
 
     # Cross-Platform
     if cp_opps:
@@ -367,14 +412,15 @@ def _print_scan_results(opportunities: dict, min_edge: float) -> None:
     click.echo(f"  Total Markets Scanned: {opportunities['summary']['total_markets']}")
     click.echo(f"  Favorite-Longshot Opportunities: {len(fl_opps)}")
     click.echo(f"  Single Arb Opportunities: {len(arb_opps)}")
+    click.echo(f"  Multi-Outcome Arb Opportunities: {len(multi_opps)}")
     click.echo(f"  Cross-Platform Opportunities: {len(cp_opps)}")
     click.echo(f"  Financial Markets Opportunities: {len(fm_opps)}")
 
     if "price_threshold_markets" in opportunities["summary"]:
         click.echo(f"  Price Threshold Markets Found: {opportunities['summary']['price_threshold_markets']}")
 
-    total_opps = len(fl_opps) + len(arb_opps) + len(cp_opps) + len(fm_opps)
+    total_opps = len(fl_opps) + len(arb_opps) + len(multi_opps) + len(cp_opps) + len(fm_opps)
     if total_opps > 0:
-        all_edges = [o.get("edge", o.get("profit_pct", o.get("spread", 0))) for o in fl_opps + arb_opps + cp_opps + fm_opps]
+        all_edges = [o.get("edge", o.get("profit_pct", o.get("spread", 0))) for o in fl_opps + arb_opps + multi_opps + cp_opps + fm_opps]
         avg_edge = sum(all_edges) / total_opps
         click.echo(f"  Average Edge: {format_price(avg_edge)}")

@@ -195,6 +195,46 @@ class PolymarketAdapter(BaseAdapter):
             logger.error("polymarket_get_markets_failed", error=str(e))
             return []
 
+    async def get_events(
+        self,
+        active_only: bool = True,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        """Fetch events (grouped markets) from Polymarket.
+
+        Events contain multiple related markets that are mutually exclusive,
+        which is needed for multi-outcome arbitrage detection.
+
+        Args:
+            active_only: Only return active events.
+            limit: Maximum events to return.
+
+        Returns:
+            List of event data dictionaries with nested markets.
+        """
+        if not self._client:
+            raise RuntimeError("Not connected. Call connect() first.")
+
+        params: dict[str, Any] = {"limit": limit}
+        if active_only:
+            params["closed"] = "false"
+            params["active"] = "true"
+
+        try:
+            response = await self._client.get(
+                f"{self.gamma_url}/events",
+                params=params,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            logger.debug("polymarket_events_fetched", count=len(data))
+            return data
+
+        except Exception as e:
+            logger.error("polymarket_get_events_failed", error=str(e))
+            return []
+
     async def get_market(self, market_id: str) -> Market | None:
         """Fetch a specific market by ID.
 
