@@ -78,10 +78,10 @@ class TestSingleConditionArbitrage:
 
 
 class TestFavoriteLongshotStrategy:
-    """Tests for favorite-longshot bias strategy."""
+    """Tests for favorite-longshot bias scanner."""
 
     def test_high_probability_yes(self):
-        """Test detection of high-probability YES opportunity."""
+        """Test detection of high-probability YES market."""
         market = Market(
             id="test-market",
             platform="polymarket",
@@ -91,19 +91,15 @@ class TestFavoriteLongshotStrategy:
             end_date=datetime(2025, 1, 20, tzinfo=timezone.utc),
         )
 
-        strategy = FavoriteLongshotStrategy(
-            min_probability=0.95,
-            min_edge=0.005,
-        )
+        strategy = FavoriteLongshotStrategy(min_probability=0.95)
         opp = strategy.check_market(market)
 
         assert opp is not None
         assert opp.side == "YES"
-        assert opp.current_price == 0.96
-        assert opp.edge > 0
+        assert opp.price == 0.96
 
     def test_high_probability_no(self):
-        """Test detection of high-probability NO opportunity."""
+        """Test detection of high-probability NO market."""
         market = Market(
             id="test-market",
             platform="polymarket",
@@ -113,15 +109,12 @@ class TestFavoriteLongshotStrategy:
             end_date=datetime(2025, 1, 20, tzinfo=timezone.utc),
         )
 
-        strategy = FavoriteLongshotStrategy(
-            min_probability=0.95,
-            min_edge=0.005,
-        )
+        strategy = FavoriteLongshotStrategy(min_probability=0.95)
         opp = strategy.check_market(market)
 
         assert opp is not None
         assert opp.side == "NO"
-        assert opp.current_price == 0.97
+        assert opp.price == 0.97
 
     def test_mid_probability_ignored(self):
         """Test that mid-probability markets are ignored."""
@@ -137,36 +130,6 @@ class TestFavoriteLongshotStrategy:
         opp = strategy.check_market(market)
 
         assert opp is None
-
-    def test_position_sizing(self):
-        """Test Kelly-based position sizing."""
-        market = Market(
-            id="test-market",
-            platform="polymarket",
-            question="Near-certain event",
-            yes_price=0.96,
-            no_price=0.04,
-            liquidity=10000,
-        )
-
-        strategy = FavoriteLongshotStrategy(
-            min_probability=0.95,
-            min_edge=0.005,
-            max_position_usd=500,
-        )
-        opp = strategy.check_market(market)
-
-        assert opp is not None
-
-        size = strategy.calculate_position_size(
-            opp,
-            account_balance=10000,
-            max_risk_pct=0.05,
-        )
-
-        # Should be constrained by max_position_usd
-        assert size <= 500
-        assert size > 0
 
 
 class TestMarketDataclass:

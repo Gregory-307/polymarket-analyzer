@@ -63,6 +63,31 @@ class MultiArbOpportunity:
         """Number of outcomes in this market."""
         return len(self.outcomes)
 
+    @property
+    def market_name(self) -> str:
+        """Get market question for alerting."""
+        return self.question
+
+    @property
+    def side(self) -> str:
+        """Get side for alerting."""
+        return f"BUNDLE ({self.num_outcomes} outcomes)"
+
+    @property
+    def price(self) -> float:
+        """Get entry price (sum of prices)."""
+        return self.sum_prices
+
+    @property
+    def expected_profit(self) -> float:
+        """Get expected profit percentage."""
+        return self.profit_pct
+
+    @property
+    def edge(self) -> float:
+        """Alias for expected_profit for compatibility."""
+        return self.profit_pct
+
 
 class MultiOutcomeArbitrage:
     """Detector for multi-outcome arbitrage opportunities.
@@ -314,3 +339,20 @@ class MultiOutcomeArbitrage:
                 "profit": total_received - max_liability,
                 "profit_pct": opportunity.profit_pct,
             }
+
+    async def analyze(self, market: "Market") -> list[MultiArbOpportunity]:
+        """Async interface for compatibility with run command.
+
+        Note: Multi-outcome arbitrage requires grouped markets, not single markets.
+        For single binary markets, this always returns empty list.
+        Use scan_polymarket_group or scan_kalshi_event for actual detection.
+
+        Args:
+            market: Market to analyze (single binary market).
+
+        Returns:
+            Empty list (multi-arb requires grouped markets).
+        """
+        # Multi-outcome arbitrage requires grouped/event data, not single markets
+        # This method exists for interface compatibility
+        return []

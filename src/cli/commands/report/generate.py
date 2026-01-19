@@ -97,7 +97,7 @@ async def generate(strategy: str, output_format: str, limit: int) -> None:
 
 def _analyze_favorite_longshot(markets: list) -> dict:
     """Analyze markets for favorite-longshot opportunities."""
-    strategy = FavoriteLongshotStrategy(min_probability=0.90, min_edge=0.01)
+    strategy = FavoriteLongshotStrategy(min_probability=0.90)
 
     opportunities = []
     for market in markets:
@@ -107,30 +107,20 @@ def _analyze_favorite_longshot(markets: list) -> dict:
                 "market_id": market.id,
                 "question": market.question,
                 "side": opp.side,
-                "price": opp.current_price,
-                "fair_value": opp.estimated_fair_value,
-                "edge": opp.edge,
-                "confidence": opp.confidence,
+                "price": opp.price,
                 "volume": market.volume,
                 "liquidity": market.liquidity,
             })
 
-    opportunities.sort(key=lambda x: x["edge"], reverse=True)
-
-    # Summary stats
-    total_edge = sum(o["edge"] for o in opportunities)
-    avg_edge = total_edge / len(opportunities) if opportunities else 0
+    opportunities.sort(key=lambda x: x["price"], reverse=True)
 
     return {
-        "description": "Buy systematically underpriced high-probability outcomes",
-        "research_basis": "Prospect Theory (Kahneman & Tversky, 1979), NBER Working Paper 15923",
+        "description": "Find high-probability markets",
+        "research_basis": "Prospect Theory (Kahneman & Tversky, 1979), Snowberg & Wolfers NBER Working Paper 15923",
         "total_opportunities": len(opportunities),
-        "average_edge": avg_edge,
         "top_opportunities": opportunities[:10],
         "methodology": {
             "min_probability": 0.90,
-            "min_edge": 0.01,
-            "bias_adjustment": "2-3% at 95%+ probability based on historical data",
         },
     }
 

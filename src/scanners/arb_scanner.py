@@ -101,8 +101,6 @@ class ArbitrageScanner:
         )
         self.favorite_longshot = FavoriteLongshotStrategy(
             min_probability=config.favorite_longshot.min_probability,
-            min_edge=config.favorite_longshot.min_edge,
-            max_position_usd=config.favorite_longshot.max_position_usd,
         )
 
         self._connected = False
@@ -282,6 +280,8 @@ class ArbitrageScanner:
                 lines.append(f"  [{opp.market.platform}] {opp.market.question[:50]}")
                 if hasattr(opp, "profit_pct"):
                     lines.append(f"    Profit: {opp.profit_pct:.2%}")
+                if hasattr(opp, "price"):
+                    lines.append(f"    Price: {opp.price:.2%}")
                 if hasattr(opp, "edge"):
                     lines.append(f"    Edge: {opp.edge:.2%}")
 

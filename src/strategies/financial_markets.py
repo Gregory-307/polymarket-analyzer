@@ -38,6 +38,11 @@ def normal_cdf(x: float) -> float:
     return 0.5 * (1 + math.erf(x / math.sqrt(2)))
 
 
+def normal_pdf(x: float) -> float:
+    """Standard normal probability density function."""
+    return math.exp(-0.5 * x * x) / math.sqrt(2 * math.pi)
+
+
 def black_scholes_digital_call(
     spot: float,
     strike: float,
@@ -73,6 +78,85 @@ def black_scholes_digital_call(
 
 
 @dataclass
+class DigitalGreeks:
+    """Greeks for a digital/binary option.
+
+    Digital options have different Greeks than vanilla options because
+    their payoff is discontinuous at the strike.
+
+    Attributes:
+        delta: Sensitivity to spot price change (d(price)/d(spot)).
+        gamma: Second derivative wrt spot (d(delta)/d(spot)).
+        theta: Time decay per day (d(price)/d(time)).
+        vega: Sensitivity to volatility (d(price)/d(vol), per 1% vol change).
+    """
+
+    delta: float
+    gamma: float
+    theta: float  # Per day
+    vega: float  # Per 1% vol change
+
+
+def calculate_digital_greeks(
+    spot: float,
+    strike: float,
+    time_to_expiry: float,
+    volatility: float,
+    risk_free_rate: float = 0.05,
+) -> DigitalGreeks:
+    """Calculate Greeks for a digital call option.
+
+    For a digital call paying $1 if S > K at expiry:
+    - Price = N(d2)
+    - Delta = n(d2) / (S * sigma * sqrt(T))
+    - Gamma = -n(d2) * d1 / (S^2 * sigma^2 * T)
+    - Theta = n(d2) * (d1 / (2*T) + r) (per year)
+    - Vega = -n(d2) * d1 / sigma
+
+    Args:
+        spot: Current spot price.
+        strike: Strike price.
+        time_to_expiry: Time to expiry in years.
+        volatility: Annualized implied volatility.
+        risk_free_rate: Risk-free rate.
+
+    Returns:
+        DigitalGreeks with all sensitivities.
+    """
+    if time_to_expiry <= 0 or volatility <= 0:
+        return DigitalGreeks(delta=0, gamma=0, theta=0, vega=0)
+
+    sqrt_t = math.sqrt(time_to_expiry)
+    d1 = (
+        math.log(spot / strike) + (risk_free_rate + 0.5 * volatility**2) * time_to_expiry
+    ) / (volatility * sqrt_t)
+
+    d2 = d1 - volatility * sqrt_t
+
+    n_d2 = normal_pdf(d2)
+
+    # Delta: sensitivity to spot
+    delta = n_d2 / (spot * volatility * sqrt_t)
+
+    # Gamma: rate of change of delta
+    gamma = -n_d2 * d1 / (spot * spot * volatility * volatility * time_to_expiry)
+
+    # Theta: time decay (convert to per day)
+    theta_annual = n_d2 * (d1 / (2 * time_to_expiry) + risk_free_rate)
+    theta = -theta_annual / 365  # Negative because value decays
+
+    # Vega: sensitivity to volatility (per 1% change)
+    vega = -n_d2 * d1 / (volatility * 100)
+
+    return DigitalGreeks(
+        delta=delta,
+        gamma=gamma,
+        theta=theta,
+        vega=vega,
+    )
+
+
+@dataclass
 class FinancialOpportunity:
     """Represents a financial markets mispricing opportunity.
 
@@ -86,6 +170,7 @@ class FinancialOpportunity:
         edge: Difference (fair_value - market_price).
         implied_vol: Implied volatility used.
         spot_price: Current spot price.
+        greeks: Option Greeks (delta, gamma, theta, vega).
     """
 
     market: Market
@@ -97,6 +182,7 @@ class FinancialOpportunity:
     edge: float
     implied_vol: float
     spot_price: float
+    greeks: DigitalGreeks | None = None
 
     @property
     def edge_pct(self) -> float:
@@ -110,6 +196,22 @@ class FinancialOpportunity:
             return "BUY"  # Market underpriced
         else:
             return "SELL"  # Market overpriced
+
+    @property
+    def hedge_ratio(self) -> float | None:
+        """Suggested delta hedge ratio.
+
+        Returns contracts of underlying needed to hedge per prediction market contract.
+        Positive means buy underlying, negative means sell.
+        """
+        if self.greeks is None:
+            return None
+        # If buying prediction market (edge > 0), need to sell delta
+        # If selling prediction market (edge < 0), need to buy delta
+        if self.edge > 0:
+            return -self.greeks.delta  # Sell this much to hedge long position
+        else:
+            return self.greeks.delta  # Buy this much to hedge short position
 
 
 class FinancialMarketsStrategy:
@@ -285,6 +387,11 @@ class FinancialMarketsStrategy:
         # Get implied volatility (default to 60% for crypto)
         vol = implied_vol or self._implied_vols.get(underlying, 0.60)
 
+        # Calculate time to expiry
+        now = utc_now()
+        delta = expiry - now
+        time_to_expiry = max(0, delta.total_seconds() / (365.25 * 24 * 3600))
+
         # Calculate fair value
         fair_value = self.calculate_fair_value(spot, threshold, expiry, vol)
 
@@ -293,6 +400,15 @@ class FinancialMarketsStrategy:
 
         if abs(edge) < self.min_edge:
             return None
+
+        # Calculate Greeks
+        greeks = calculate_digital_greeks(
+            spot=spot,
+            strike=threshold,
+            time_to_expiry=time_to_expiry,
+            volatility=vol,
+            risk_free_rate=self.risk_free_rate,
+        )
 
         return FinancialOpportunity(
             market=market,
@@ -304,6 +420,7 @@ class FinancialMarketsStrategy:
             edge=edge,
             implied_vol=vol,
             spot_price=spot,
+            greeks=greeks,
         )
 
     def set_spot_price(self, asset: str, price: float) -> None:
@@ -383,3 +500,53 @@ class FinancialMarketsStrategy:
         )
 
         return opportunities
+
+    async def scan_with_live_data(
+        self,
+        markets: list["Market"],
+    ) -> list[FinancialOpportunity]:
+        """Scan markets using live data from Deribit.
+
+        Fetches spot prices and implied volatility from Deribit options chain,
+        then scans for mispriced prediction markets.
+
+        Args:
+            markets: Markets to scan.
+
+        Returns:
+            List of opportunities sorted by edge.
+        """
+        from ..adapters.deribit_options import DeribitOptionsClient
+
+        async with DeribitOptionsClient() as client:
+            # Fetch BTC data
+            btc_spot = await client.get_spot("BTC")
+            btc_vol = await client.get_atm_iv("BTC", days_to_expiry=30)
+            if not btc_vol:
+                btc_vol = await client.get_historical_vol("BTC")
+
+            # Fetch ETH data
+            eth_spot = await client.get_spot("ETH")
+            eth_vol = await client.get_atm_iv("ETH", days_to_expiry=30)
+            if not eth_vol:
+                eth_vol = await client.get_historical_vol("ETH")
+
+            # Update prices
+            if btc_spot:
+                self.set_spot_price("BTC", btc_spot)
+            if eth_spot:
+                self.set_spot_price("ETH", eth_spot)
+            if btc_vol:
+                self.set_implied_vol("BTC", btc_vol)
+            if eth_vol:
+                self.set_implied_vol("ETH", eth_vol)
+
+            logger.info(
+                "financial_markets_data",
+                btc_spot=f"${btc_spot:,.0f}" if btc_spot else "N/A",
+                btc_vol=f"{btc_vol:.1%}" if btc_vol else "N/A",
+                eth_spot=f"${eth_spot:,.0f}" if eth_spot else "N/A",
+                eth_vol=f"{eth_vol:.1%}" if eth_vol else "N/A",
+            )
+
+        return self.scan(markets)

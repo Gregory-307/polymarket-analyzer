@@ -42,11 +42,9 @@ class StrategyConfig(BaseModel):
 
 
 class FavoriteLongshotConfig(StrategyConfig):
-    """Configuration for favorite-longshot bias strategy."""
+    """Configuration for favorite-longshot bias scanner."""
 
-    min_probability: float = 0.95
-    min_edge: float = 0.01
-    max_position_usd: float = 1000
+    min_probability: float = 0.90
 
 
 class SingleArbConfig(StrategyConfig):

@@ -31,6 +31,21 @@ from .base import (
 
 logger = get_logger(__name__)
 
+# Polygon USDC contract address (PoS bridged USDC)
+POLYGON_USDC_ADDRESS = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174"
+POLYGON_RPC_URL = "https://polygon-rpc.com"
+
+# ERC20 ABI for balanceOf
+ERC20_BALANCE_ABI = [
+    {
+        "constant": True,
+        "inputs": [{"name": "_owner", "type": "address"}],
+        "name": "balanceOf",
+        "outputs": [{"name": "balance", "type": "uint256"}],
+        "type": "function",
+    }
+]
+
 
 class PolymarketAdapter(BaseAdapter):
     """Adapter for Polymarket prediction market platform.
@@ -81,6 +96,7 @@ class PolymarketAdapter(BaseAdapter):
 
         self._client: httpx.AsyncClient | None = None
         self._clob_client: Any = None  # py_clob_client.ClobClient
+        self._wallet_address: str | None = None
 
     async def connect(self) -> bool:
         """Establish connection to Polymarket.
@@ -120,6 +136,7 @@ class PolymarketAdapter(BaseAdapter):
         """Initialize the official CLOB client for trading."""
         try:
             from py_clob_client.client import ClobClient
+            from eth_account import Account
 
             self._clob_client = ClobClient(
                 self.base_url,
@@ -134,9 +151,18 @@ class PolymarketAdapter(BaseAdapter):
                 self._clob_client.create_or_derive_api_creds()
             )
 
+            # Capture wallet address
+            account = Account.from_key(self.credentials.polymarket_private_key)
+            self._wallet_address = account.address
+
         except ImportError:
             logger.warning("py_clob_client not installed, trading disabled")
             self._clob_client = None
+
+    @property
+    def wallet_address(self) -> str | None:
+        """Get the wallet address for this adapter."""
+        return self._wallet_address
 
     async def disconnect(self) -> None:
         """Close connection and cleanup."""
@@ -525,15 +551,50 @@ class PolymarketAdapter(BaseAdapter):
         """Get USDC balance on Polygon.
 
         Returns:
-            Available balance in USD.
+            Available balance in USD (USDC).
         """
-        if not self._authenticated or not self._clob_client:
+        if not self._authenticated or not self.credentials:
             raise RuntimeError("Trading requires authentication.")
 
-        # Note: Balance checking requires Web3 integration
-        # This is a placeholder - actual implementation would query Polygon
-        logger.warning("polymarket_balance_not_implemented")
-        return 0.0
+        try:
+            from web3 import Web3
+            from eth_account import Account
+
+            # Derive wallet address from private key
+            account = Account.from_key(self.credentials.polymarket_private_key)
+            wallet_address = account.address
+
+            # Connect to Polygon
+            w3 = Web3(Web3.HTTPProvider(POLYGON_RPC_URL))
+
+            if not w3.is_connected():
+                logger.warning("polygon_connection_failed")
+                return 0.0
+
+            # Create USDC contract instance
+            usdc_contract = w3.eth.contract(
+                address=Web3.to_checksum_address(POLYGON_USDC_ADDRESS),
+                abi=ERC20_BALANCE_ABI,
+            )
+
+            # Get balance (USDC has 6 decimals)
+            balance_wei = usdc_contract.functions.balanceOf(wallet_address).call()
+            balance_usdc = balance_wei / 1e6  # 6 decimals
+
+            logger.info(
+                "polymarket_balance_fetched",
+                wallet=wallet_address[:10] + "...",
+                balance=f"${balance_usdc:.2f}",
+            )
+
+            return balance_usdc
+
+        except ImportError:
+            logger.warning("web3_not_installed")
+            return 0.0
+        except Exception as e:
+            logger.error("polymarket_balance_error", error=str(e))
+            return 0.0
 
     def _parse_market(self, data: dict[str, Any]) -> Market | None:
         """Parse Gamma API market response into Market object.

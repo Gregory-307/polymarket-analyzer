@@ -25,6 +25,7 @@ from ...strategies.single_arb import SingleConditionArbitrage
 from ...strategies.multi_arb import MultiOutcomeArbitrage
 from ...strategies.cross_platform import CrossPlatformStrategy
 from ...strategies.financial_markets import FinancialMarketsStrategy
+from ...adapters.deribit_options import DeribitOptionsClient
 
 
 @click.command()
@@ -63,6 +64,11 @@ from ...strategies.financial_markets import FinancialMarketsStrategy
     default=True,
     help="Save results to file.",
 )
+@click.option(
+    "--atm-iv/--historical-iv",
+    default=False,
+    help="Use ATM implied vol from Deribit options chain (slower but more accurate).",
+)
 @async_command
 async def scan(
     strategy: str,
@@ -71,6 +77,7 @@ async def scan(
     min_edge: float,
     output: str,
     save: bool,
+    atm_iv: bool,
 ) -> None:
     """Scan prediction markets for trading opportunities.
 
@@ -150,7 +157,7 @@ async def scan(
 
     # Scan for favorite-longshot opportunities
     if strategy in ("all", "favorite_longshot"):
-        fl_strategy = FavoriteLongshotStrategy(min_probability=0.90, min_edge=min_edge)
+        fl_strategy = FavoriteLongshotStrategy(min_probability=0.90)
 
         for market in all_markets:
             opp = fl_strategy.check_market(market)
@@ -160,10 +167,7 @@ async def scan(
                     "question": market.question,
                     "platform": market.platform,
                     "side": opp.side,
-                    "price": opp.current_price,
-                    "fair_value": opp.estimated_fair_value,
-                    "edge": opp.edge,
-                    "confidence": opp.confidence,
+                    "price": opp.price,
                     "volume": market.volume,
                     "liquidity": market.liquidity,
                     "strategy": "favorite_longshot",
@@ -252,81 +256,41 @@ async def scan(
     if strategy in ("all", "financial_markets"):
         fm_strategy = FinancialMarketsStrategy(min_edge=min_edge)
 
-        import httpx
+        # Fetch live data from Deribit
+        click.echo("\n  Fetching Deribit market data...")
+        async with DeribitOptionsClient() as deribit:
+            btc_spot = await deribit.get_spot("BTC")
+            eth_spot = await deribit.get_spot("ETH")
 
-        # Fetch real spot prices and volatility
-        btc_price, eth_price, sol_price = 95000, 3300, 150
-        btc_vol, eth_vol, sol_vol = 0.55, 0.65, 0.80
+            # Get volatility (ATM IV if requested, else historical)
+            if atm_iv:
+                click.echo("  Using ATM implied volatility from options chain...")
+                btc_vol = await deribit.get_atm_iv("BTC", days_to_expiry=30)
+                eth_vol = await deribit.get_atm_iv("ETH", days_to_expiry=30)
+            else:
+                btc_vol = await deribit.get_historical_vol("BTC")
+                eth_vol = await deribit.get_historical_vol("ETH")
 
-        async with httpx.AsyncClient() as client:
-            # Spot prices from Deribit (more accurate than CoinGecko for options)
-            try:
-                btc_resp = await client.get(
-                    'https://www.deribit.com/api/v2/public/get_index_price',
-                    params={'index_name': 'btc_usd'}
-                )
-                btc_data = btc_resp.json()
-                btc_price = btc_data.get('result', {}).get('index_price', btc_price)
+        # Fallback defaults
+        btc_spot = btc_spot or 95000
+        eth_spot = eth_spot or 3300
+        btc_vol = btc_vol or 0.55
+        eth_vol = eth_vol or 0.65
 
-                eth_resp = await client.get(
-                    'https://www.deribit.com/api/v2/public/get_index_price',
-                    params={'index_name': 'eth_usd'}
-                )
-                eth_data = eth_resp.json()
-                eth_price = eth_data.get('result', {}).get('index_price', eth_price)
-            except Exception:
-                pass  # Use defaults
+        vol_source = "ATM IV" if atm_iv else "Historical"
+        click.echo(f"\n  Live data (Deribit) | Vol: {vol_source}")
+        click.echo(f"    BTC: ${btc_spot:,.0f} | Vol: {btc_vol:.1%}")
+        click.echo(f"    ETH: ${eth_spot:,.0f} | Vol: {eth_vol:.1%}")
 
-            # Historical volatility from Deribit
-            try:
-                btc_vol_resp = await client.get(
-                    'https://www.deribit.com/api/v2/public/get_historical_volatility',
-                    params={'currency': 'BTC'}
-                )
-                btc_vol_data = btc_vol_resp.json()
-                vol_points = btc_vol_data.get('result', [])
-                if vol_points:
-                    # Get latest volatility (percentage -> decimal)
-                    btc_vol = vol_points[-1][1] / 100
-
-                eth_vol_resp = await client.get(
-                    'https://www.deribit.com/api/v2/public/get_historical_volatility',
-                    params={'currency': 'ETH'}
-                )
-                eth_vol_data = eth_vol_resp.json()
-                vol_points = eth_vol_data.get('result', [])
-                if vol_points:
-                    eth_vol = vol_points[-1][1] / 100
-            except Exception:
-                pass  # Use defaults
-
-            # SOL from CoinGecko (Deribit doesn't have SOL)
-            try:
-                sol_resp = await client.get(
-                    'https://api.coingecko.com/api/v3/simple/price',
-                    params={'ids': 'solana', 'vs_currencies': 'usd'}
-                )
-                sol_data = sol_resp.json()
-                sol_price = sol_data.get('solana', {}).get('usd', sol_price)
-            except Exception:
-                pass
-
-        click.echo(f"\n  Live data (Deribit + CoinGecko):")
-        click.echo(f"    BTC: ${btc_price:,.0f} | Vol: {btc_vol:.1%}")
-        click.echo(f"    ETH: ${eth_price:,.0f} | Vol: {eth_vol:.1%}")
-        click.echo(f"    SOL: ${sol_price:,.0f} | Vol: {sol_vol:.1%}")
-
-        fm_strategy.set_spot_price("BTC", btc_price)
-        fm_strategy.set_spot_price("ETH", eth_price)
-        fm_strategy.set_spot_price("SOL", sol_price)
+        fm_strategy.set_spot_price("BTC", btc_spot)
+        fm_strategy.set_spot_price("ETH", eth_spot)
         fm_strategy.set_implied_vol("BTC", btc_vol)
         fm_strategy.set_implied_vol("ETH", eth_vol)
-        fm_strategy.set_implied_vol("SOL", sol_vol)
 
         fm_opps = fm_strategy.scan(all_markets)
 
         for opp in fm_opps:
-            opportunities["financial_markets"].append({
+            fm_data = {
                 "market_id": opp.market.id,
                 "question": opp.market.question,
                 "platform": opp.market.platform,
@@ -340,7 +304,17 @@ async def scan(
                 "implied_vol": opp.implied_vol,
                 "direction": opp.direction,
                 "strategy": "financial_markets",
-            })
+            }
+            # Add Greeks if available
+            if opp.greeks:
+                fm_data["greeks"] = {
+                    "delta": opp.greeks.delta,
+                    "gamma": opp.greeks.gamma,
+                    "theta": opp.greeks.theta,
+                    "vega": opp.greeks.vega,
+                }
+                fm_data["hedge_ratio"] = opp.hedge_ratio
+            opportunities["financial_markets"].append(fm_data)
 
         # Also report how many price threshold markets were found
         parsed_count = sum(
@@ -382,14 +356,13 @@ def _print_scan_results(opportunities: dict, min_edge: float) -> None:
     if fl_opps:
         print_subheader("FAVORITE-LONGSHOT OPPORTUNITIES")
 
-        # Sort by edge
-        fl_opps.sort(key=lambda x: x["edge"], reverse=True)
+        # Sort by price (highest probability first)
+        fl_opps.sort(key=lambda x: x["price"], reverse=True)
 
         for opp in fl_opps[:10]:
             question = opp["question"][:55]
             click.echo(f"\n  {question}")
             click.echo(f"    {opp['side']} @ {format_price(opp['price'])} | "
-                      f"Edge: {format_edge(opp['edge'])} | "
                       f"Vol: {format_usd(opp.get('volume', 0))}")
 
     # Single Arb
@@ -438,21 +411,68 @@ def _print_scan_results(opportunities: dict, min_edge: float) -> None:
 
     # Financial Markets
     if fm_opps:
-        print_subheader("FINANCIAL MARKETS OPPORTUNITIES")
+        print_subheader("FINANCIAL MARKETS vs OPTIONS ARBITRAGE")
+        click.echo("\n  Compares prediction market prices to Black-Scholes fair value")
+        click.echo("  derived from Deribit options implied volatility.\n")
 
         # Sort by edge
         fm_opps.sort(key=lambda x: abs(x["edge"]), reverse=True)
 
         for opp in fm_opps[:10]:
-            question = opp["question"][:50]
-            click.echo(f"\n  {question}")
-            click.echo(f"    {opp['underlying']} > ${opp['threshold']:,.0f}")
-            click.echo(f"    Spot: ${opp['spot_price']:,.0f} | "
-                      f"Market: {format_price(opp['market_price'])} | "
-                      f"Fair Value: {format_price(opp['fair_value'])}")
-            click.echo(f"    Edge: {opp['edge_pct']:.1f}% | "
-                      f"Direction: {opp['direction']} | "
-                      f"IV: {opp['implied_vol']:.0%}")
+            question = opp["question"][:60]
+            click.echo(f"  {'='*66}")
+            click.echo(f"  {question}")
+            click.echo(f"  {'='*66}")
+
+            # Current state
+            threshold = opp['threshold']
+            spot = opp['spot_price']
+            pct_to_target = ((threshold / spot) - 1) * 100
+            click.echo(f"\n  Market Question: Will {opp['underlying']} exceed ${threshold:,.0f}?")
+            click.echo(f"  Current Spot:    ${spot:,.0f} ({pct_to_target:+.0f}% to target)")
+
+            # The key comparison
+            click.echo(f"\n  +-----------------------------------------------------------+")
+            click.echo(f"  |  PREDICTION MARKET PRICE:  {opp['market_price']*100:>5.1f}%                       |")
+            click.echo(f"  |  OPTIONS-IMPLIED VALUE:    {opp['fair_value']*100:>5.1f}%  (Black-Scholes)      |")
+            click.echo(f"  |-----------------------------------------------------------|")
+            click.echo(f"  |  MISPRICING:               {opp['edge_pct']:>+5.1f}%                       |")
+            click.echo(f"  +-----------------------------------------------------------+")
+
+            # Trade thesis
+            click.echo(f"\n  TRADE THESIS:")
+            if opp['edge'] > 0:
+                click.echo(f"    The prediction market is UNDERPRICED vs options fair value.")
+                click.echo(f"    -> BUY on Polymarket at {opp['market_price']*100:.1f}%")
+                click.echo(f"    -> Options market implies {opp['fair_value']*100:.1f}% probability")
+                click.echo(f"    -> Edge: +{opp['edge_pct']:.1f}% expected value")
+            else:
+                click.echo(f"    The prediction market is OVERPRICED vs options fair value.")
+                click.echo(f"    -> SELL on Polymarket at {opp['market_price']*100:.1f}%")
+                click.echo(f"    -> Options market implies only {opp['fair_value']*100:.1f}% probability")
+                click.echo(f"    -> Edge: {opp['edge_pct']:.1f}% expected value (by selling)")
+
+            # Hedging explanation
+            click.echo(f"\n  HEDGING (Optional):")
+            click.echo(f"    IV used: {opp['implied_vol']*100:.0f}% (from Deribit {opp['underlying']} options)")
+            if opp.get("greeks") and opp.get("hedge_ratio") is not None:
+                g = opp["greeks"]
+                hr = opp["hedge_ratio"]
+                # Check for valid Greeks (not NaN/Inf)
+                if g['delta'] == g['delta'] and abs(g['delta']) < 1e6:  # NaN check
+                    click.echo(f"    Delta: {g['delta']:.4f} (price sensitivity to spot)")
+                    if hr != 0 and hr == hr:  # NaN check
+                        action = "SELL" if hr < 0 else "BUY"
+                        click.echo(f"    To delta-hedge: {action} {abs(hr):.6f} {opp['underlying']} per $1 position")
+                else:
+                    click.echo(f"    Delta: ~0 (far out of the money)")
+
+            # Execution note
+            click.echo(f"\n  EXECUTION:")
+            click.echo(f"    1. {opp['direction']} this market on Polymarket")
+            click.echo(f"    2. If hedging: use {opp['underlying']} futures or spot")
+            click.echo(f"    3. Hold until resolution or exit on price movement")
+            click.echo("")
 
     # Summary
     print_subheader("SUMMARY")
@@ -466,8 +486,9 @@ def _print_scan_results(opportunities: dict, min_edge: float) -> None:
     if "price_threshold_markets" in opportunities["summary"]:
         click.echo(f"  Price Threshold Markets Found: {opportunities['summary']['price_threshold_markets']}")
 
-    total_opps = len(fl_opps) + len(arb_opps) + len(multi_opps) + len(cp_opps) + len(fm_opps)
-    if total_opps > 0:
-        all_edges = [o.get("edge", o.get("profit_pct", o.get("spread", 0))) for o in fl_opps + arb_opps + multi_opps + cp_opps + fm_opps]
-        avg_edge = sum(all_edges) / total_opps
-        click.echo(f"  Average Edge: {format_price(avg_edge)}")
+    # Show average for strategies that have computed edges
+    arb_and_fm = arb_opps + multi_opps + cp_opps + fm_opps
+    if arb_and_fm:
+        all_edges = [o.get("edge", o.get("profit_pct", o.get("spread", 0))) for o in arb_and_fm]
+        avg_edge = sum(all_edges) / len(arb_and_fm)
+        click.echo(f"  Average Edge (arb strategies): {format_price(avg_edge)}")

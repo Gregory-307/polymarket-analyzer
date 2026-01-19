@@ -143,20 +143,35 @@ class KalshiAdapter(BaseAdapter):
         self._kalshi_client = None
         self._authenticated = False
 
+    # Sports ticker prefixes to exclude
+    SPORTS_PREFIXES = (
+        "KXMVE",      # MVE sports parlays
+        "KXNFL",      # NFL
+        "KXNBA",      # NBA
+        "KXMLB",      # MLB
+        "KXNHL",      # NHL
+        "KXSOCCER",   # Soccer
+        "KXTENNIS",   # Tennis
+        "KXGOLF",     # Golf
+        "KXUFC",      # UFC/MMA
+        "KXCFB",      # College football
+        "KXCBB",      # College basketball
+    )
+
     async def get_markets(
         self,
         active_only: bool = True,
         category: str | None = None,
         limit: int = 100,
-        exclude_sports_parlays: bool = True,
+        exclude_sports: bool = True,
     ) -> list[Market]:
         """Fetch available markets from Kalshi.
 
         Args:
             active_only: Only return active markets.
-            category: Filter by series ticker prefix.
+            category: Filter by category (Politics, Economics, etc).
             limit: Maximum markets to return.
-            exclude_sports_parlays: Exclude KXMVE* sports parlay markets.
+            exclude_sports: Exclude sports betting markets.
 
         Returns:
             List of Market objects.
@@ -164,53 +179,107 @@ class KalshiAdapter(BaseAdapter):
         if not self._client:
             raise RuntimeError("Not connected. Call connect() first.")
 
-        # Fetch more than needed to account for filtering
-        fetch_limit = limit * 5 if exclude_sports_parlays else limit
+        # Use events API for better filtering
+        if exclude_sports or category:
+            return await self._get_markets_via_events(
+                active_only=active_only,
+                category=category,
+                limit=limit,
+                exclude_sports=exclude_sports,
+            )
 
-        params: dict[str, Any] = {"limit": fetch_limit}
+        # Direct markets API (includes all sports)
+        params: dict[str, Any] = {"limit": limit}
         if active_only:
             params["status"] = "open"
-        if category:
-            params["series_ticker"] = category
 
         try:
+            response = await self._client.get(
+                f"{self.base_url}/markets",
+                params=params,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            markets = []
+            for item in data.get("markets", []):
+                market = self._parse_market(item)
+                if market:
+                    markets.append(market)
+
+            logger.debug("kalshi_markets_fetched", count=len(markets))
+            return markets[:limit]
+
+        except Exception as e:
+            logger.error("kalshi_get_markets_failed", error=str(e))
+            return []
+
+    async def _get_markets_via_events(
+        self,
+        active_only: bool = True,
+        category: str | None = None,
+        limit: int = 100,
+        exclude_sports: bool = True,
+    ) -> list[Market]:
+        """Fetch markets through the events API for better filtering.
+
+        This avoids paginating through thousands of sports markets.
+        """
+        try:
+            params: dict[str, Any] = {
+                "limit": 100,
+                "with_nested_markets": "true",
+            }
+            if active_only:
+                params["status"] = "open"
+
+            response = await self._client.get(
+                f"{self.base_url}/events",
+                params=params,
+            )
+            response.raise_for_status()
+            data = response.json()
+
             all_markets = []
-            cursor = None
+            for event in data.get("events", []):
+                event_category = event.get("category", "")
 
-            # Paginate to get enough non-sports markets
-            while len(all_markets) < limit:
-                if cursor:
-                    params["cursor"] = cursor
+                # Filter by category if specified
+                if category and event_category.lower() != category.lower():
+                    continue
 
-                response = await self._client.get(
-                    f"{self.base_url}/markets",
-                    params=params,
-                )
-                response.raise_for_status()
-                data = response.json()
+                # Skip sports if requested
+                if exclude_sports and event_category.lower() == "sports":
+                    continue
 
-                for item in data.get("markets", []):
-                    # Skip sports parlays if requested
+                # Get markets from this event
+                for item in event.get("markets", []):
+                    # Double-check ticker isn't sports
                     ticker = item.get("ticker", "")
-                    if exclude_sports_parlays and ticker.startswith("KXMVE"):
+                    if exclude_sports and ticker.startswith(self.SPORTS_PREFIXES):
                         continue
 
                     market = self._parse_market(item)
                     if market:
+                        # Add category from event
+                        market.category = event_category
                         all_markets.append(market)
 
                     if len(all_markets) >= limit:
                         break
 
-                cursor = data.get("cursor")
-                if not cursor:
+                if len(all_markets) >= limit:
                     break
 
-            logger.debug("kalshi_markets_fetched", count=len(all_markets))
+            logger.debug(
+                "kalshi_markets_fetched_via_events",
+                count=len(all_markets),
+                excluded_sports=exclude_sports,
+            )
             return all_markets[:limit]
 
         except Exception as e:
-            logger.error("kalshi_get_markets_failed", error=str(e))
+            logger.error("kalshi_get_markets_via_events_failed", error=str(e))
             return []
 
     async def get_market(self, market_id: str) -> Market | None:

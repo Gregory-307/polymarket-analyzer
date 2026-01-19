@@ -8,9 +8,18 @@ Types:
 - Sell-All: YES + NO > $1.00 -> Sell both, guaranteed profit
 
 Research: 1-3% returns per trade, near-zero risk.
+
+Transaction costs (must be accounted for):
+- Spread cost: ~0.5% crossing bid-ask
+- Slippage: ~0.2% per $100 size
+- Fees: 0% on Polymarket currently
 """
 
 from __future__ import annotations
+
+# Conservative transaction cost estimates
+SPREAD_COST_PCT = 0.005  # 0.5% bid-ask crossing per side
+SLIPPAGE_BASE_PCT = 0.002  # 0.2% slippage per $100
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -54,6 +63,63 @@ class SingleArbOpportunity:
     def is_sell_all(self) -> bool:
         """Check if this is a sell-all opportunity."""
         return self.action == "sell_all"
+
+    @property
+    def market_name(self) -> str:
+        """Get market question/name for alerting."""
+        return self.market.question
+
+    @property
+    def side(self) -> str:
+        """Get side for alerting (YES+NO for arb)."""
+        return "YES+NO"
+
+    @property
+    def price(self) -> float:
+        """Get entry price (sum of prices)."""
+        return self.sum_prices
+
+    @property
+    def expected_profit(self) -> float:
+        """Get expected profit percentage."""
+        return self.profit_pct
+
+    @property
+    def edge(self) -> float:
+        """Alias for expected_profit for compatibility."""
+        return self.profit_pct
+
+    def estimate_net_profit(self, size_usd: float = 100.0) -> dict:
+        """Estimate profit after transaction costs.
+
+        Args:
+            size_usd: Position size in USD.
+
+        Returns:
+            Dictionary with gross profit, costs, and net profit.
+        """
+        gross_profit = size_usd * self.profit_pct
+
+        # Spread cost for both legs
+        spread_cost = size_usd * SPREAD_COST_PCT * 2
+
+        # Slippage scales with size
+        slippage_cost = size_usd * SLIPPAGE_BASE_PCT * (size_usd / 100)
+
+        total_costs = spread_cost + slippage_cost
+        net_profit = gross_profit - total_costs
+
+        return {
+            "size_usd": size_usd,
+            "gross_profit": gross_profit,
+            "spread_cost": spread_cost,
+            "slippage_cost": slippage_cost,
+            "total_costs": total_costs,
+            "net_profit": net_profit,
+            "net_profit_pct": net_profit / size_usd if size_usd > 0 else 0,
+            "profitable": net_profit > 0,
+            "min_edge_required": total_costs / size_usd if size_usd > 0 else 0,
+        }
 
 
 class SingleConditionArbitrage:
@@ -222,3 +288,15 @@ class SingleConditionArbitrage:
                 "profit": received - units,
                 "profit_pct": opportunity.profit_pct,
             }
+
+    async def analyze(self, market: "Market") -> list[SingleArbOpportunity]:
+        """Async interface for compatibility with run command.
+
+        Args:
+            market: Market to analyze.
+
+        Returns:
+            List with single opportunity if found, empty list otherwise.
+        """
+        opp = self.check_market(market)
+        return [opp] if opp else []

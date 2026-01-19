@@ -57,19 +57,23 @@ def cli(ctx: click.Context, log_level: str, log_format: str) -> None:
 
 
 # Import and register command groups
-from .commands import connect, markets, scan, signals, backtest
+from .commands import connect, markets, scan, signals, backtest, run, execute
 from .commands.analyze import analyze
 from .commands.report import report
 from .commands.visualize import visualize
+from .commands.data import data
 
 cli.add_command(connect.connect)
 cli.add_command(markets.markets)
 cli.add_command(scan.scan)
 cli.add_command(signals.signals)
 cli.add_command(backtest.backtest)
+cli.add_command(run.run)
+cli.add_command(execute.execute)
 cli.add_command(analyze)
 cli.add_command(report)
 cli.add_command(visualize)
+cli.add_command(data)
 
 
 if __name__ == "__main__":

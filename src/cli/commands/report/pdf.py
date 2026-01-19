@@ -194,7 +194,7 @@ def _generate_briefing_markdown(strategy: str, markets: list) -> str:
 
 def _generate_fl_section(markets: list) -> list[str]:
     """Generate favorite-longshot section."""
-    strategy = FavoriteLongshotStrategy(min_probability=0.90, min_edge=0.01)
+    strategy = FavoriteLongshotStrategy(min_probability=0.90)
 
     opportunities = []
     for market in markets:
@@ -203,12 +203,11 @@ def _generate_fl_section(markets: list) -> list[str]:
             opportunities.append({
                 "question": market.question,
                 "side": opp.side,
-                "price": opp.current_price,
-                "edge": opp.edge,
+                "price": opp.price,
                 "volume": market.volume,
             })
 
-    opportunities.sort(key=lambda x: x["edge"], reverse=True)
+    opportunities.sort(key=lambda x: x["price"], reverse=True)
 
     lines = [
         "## Favorite-Longshot Bias Strategy",
@@ -219,32 +218,30 @@ def _generate_fl_section(markets: list) -> list[str]:
         "- **Long shots** (low probability) are systematically **overpriced**",
         "- **Favorites** (high probability) are systematically **underpriced**",
         "",
-        "**Research Basis:** Prospect Theory (Kahneman & Tversky, 1979), NBER Working Paper 15923",
+        "**Research Basis:** Prospect Theory (Kahneman & Tversky, 1979), Snowberg & Wolfers NBER Working Paper 15923",
         "",
-        f"### Current Opportunities ({len(opportunities)} found)",
+        f"### High-Probability Markets Found ({len(opportunities)})",
         "",
     ]
 
     if opportunities:
         lines.extend([
-            "| Market | Side | Price | Edge | Volume |",
-            "|--------|------|-------|------|--------|",
+            "| Market | Side | Price | Volume |",
+            "|--------|------|-------|--------|",
         ])
 
         for opp in opportunities[:10]:
             q = (opp["question"] or "Unknown")[:35]
             lines.append(
-                f"| {q} | {opp['side']} | {opp['price']:.1%} | {opp['edge']:.2%} | ${opp['volume']:,.0f} |"
+                f"| {q} | {opp['side']} | {opp['price']:.1%} | ${opp['volume']:,.0f} |"
             )
 
         lines.append("")
 
-        avg_edge = sum(o["edge"] for o in opportunities) / len(opportunities)
         lines.extend([
-            "### Summary Statistics",
+            "### Summary",
             "",
-            f"- **Total Opportunities:** {len(opportunities)}",
-            f"- **Average Edge:** {avg_edge:.2%}",
+            f"- **Markets Found:** {len(opportunities)}",
             "",
         ])
 

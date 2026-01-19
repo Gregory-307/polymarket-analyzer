@@ -1,4 +1,9 @@
-"""Backtest command - Run strategy backtests with Monte Carlo simulation."""
+"""Backtest command - Run strategy backtests.
+
+Supports two modes:
+1. Historical backtest (default): Uses real data from database
+2. Monte Carlo simulation: Statistical simulation (legacy)
+"""
 
 from __future__ import annotations
 
@@ -12,6 +17,8 @@ import numpy as np
 from ..utils import async_command, print_header, print_subheader, format_price, format_usd
 from ...core.config import Credentials
 from ...adapters.polymarket import PolymarketAdapter
+from ...storage.database import Database
+from ...analysis.backtester import HistoricalBacktester
 
 
 @click.command()
@@ -21,10 +28,17 @@ from ...adapters.polymarket import PolymarketAdapter
     default="favorite_longshot",
     help="Strategy to backtest.",
 )
-@click.option("--simulations", type=int, default=100, help="Number of Monte Carlo simulations.")
+@click.option(
+    "--mode",
+    type=click.Choice(["historical", "monte_carlo"], case_sensitive=False),
+    default="historical",
+    help="Backtest mode: historical (real data) or monte_carlo (simulation).",
+)
+@click.option("--simulations", type=int, default=100, help="Number of Monte Carlo simulations (monte_carlo mode only).")
 @click.option("--capital", type=float, default=1000, help="Starting capital.")
 @click.option("--bet-size", type=float, default=25, help="Bet size per position ($).")
 @click.option("--limit", type=int, default=200, help="Markets to include.")
+@click.option("--db-path", type=click.Path(), default="data/polymarket.db", help="Database path (historical mode).")
 @click.option(
     "--output",
     type=click.Choice(["table", "json"], case_sensitive=False),
@@ -34,6 +48,169 @@ from ...adapters.polymarket import PolymarketAdapter
 @async_command
 async def backtest(
     strategy: str,
+    mode: str,
+    simulations: int,
+    capital: float,
+    bet_size: float,
+    limit: int,
+    db_path: str,
+    output: str,
+    visualize: bool,
+) -> None:
+    """Run strategy backtest.
+
+    \b
+    Two modes available:
+    - historical: Uses REAL market data and resolutions from database
+    - monte_carlo: Statistical simulation (for comparison only)
+
+    The historical mode is preferred as it uses actual market outcomes
+    rather than simulated probabilities.
+
+    \b
+    Examples:
+      python -m src backtest                              # Historical (default)
+      python -m src backtest --mode historical            # Explicit historical
+      python -m src backtest --mode monte_carlo           # Legacy simulation
+      python -m src backtest --capital 5000 --bet-size 50
+    """
+    print_header("BACKTEST")
+    click.echo(f"\n  Mode: {mode.upper()}")
+    click.echo(f"  Strategy: {strategy}")
+    click.echo(f"  Starting Capital: {format_usd(capital)}")
+    click.echo(f"  Bet Size: {format_usd(bet_size)}")
+
+    if mode == "historical":
+        # Historical backtest using real data
+        await _run_historical_backtest(
+            strategy, capital, bet_size, db_path, output, visualize
+        )
+    else:
+        # Legacy Monte Carlo simulation
+        click.echo(f"  Simulations: {simulations}")
+        await _run_monte_carlo_backtest(
+            strategy, simulations, capital, bet_size, limit, output, visualize
+        )
+
+
+async def _run_historical_backtest(
+    strategy: str,
+    capital: float,
+    bet_size: float,
+    db_path: str,
+    output: str,
+    visualize: bool,
+) -> None:
+    """Run backtest using real historical data."""
+    db_file = Path(db_path)
+    if not db_file.exists():
+        click.echo(f"\n  ERROR: Database not found: {db_path}")
+        click.echo("  Run 'python -m src data collect --once' first to collect data")
+        return
+
+    db = Database(db_file)
+    await db.connect()
+
+    try:
+        # Check for resolution data
+        resolutions = await db.get_resolutions(limit=1)
+        if not resolutions:
+            click.echo("\n  ERROR: No resolution data found")
+            click.echo("  Historical backtest requires resolved markets")
+            click.echo("  Resolution data will accumulate as markets close")
+            click.echo("\n  TIP: Use --mode monte_carlo for simulation without historical data")
+            return
+
+        click.echo("\n  Running historical backtest...")
+
+        backtester = HistoricalBacktester(db)
+        result = await backtester.run(
+            strategy=strategy,
+            min_probability=0.90,
+            bet_size=bet_size,
+            capital=capital,
+        )
+
+        if result.total_trades == 0:
+            click.echo("\n  No trades generated - insufficient historical data")
+            click.echo("  Need more resolved markets with matching snapshots")
+            return
+
+        if output == "json":
+            click.echo(json.dumps({
+                "mode": "historical",
+                "strategy": result.strategy,
+                "total_trades": result.total_trades,
+                "wins": result.wins,
+                "losses": result.losses,
+                "win_rate": result.win_rate,
+                "total_pnl": result.total_pnl,
+                "total_return": result.total_return,
+                "sharpe_ratio": result.sharpe_ratio,
+                "max_drawdown": result.max_drawdown,
+                "profit_factor": result.profit_factor,
+            }, indent=2))
+        else:
+            _print_historical_results(result)
+
+        # Save results
+        output_dir = Path("results/backtests")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_file = output_dir / f"backtest_historical_{timestamp}.json"
+
+        with open(output_file, "w") as f:
+            json.dump({
+                "mode": "historical",
+                "strategy": result.strategy,
+                "start_date": result.start_date.isoformat() if result.start_date else None,
+                "end_date": result.end_date.isoformat() if result.end_date else None,
+                "total_trades": result.total_trades,
+                "wins": result.wins,
+                "losses": result.losses,
+                "win_rate": result.win_rate,
+                "total_pnl": result.total_pnl,
+                "total_return": result.total_return,
+                "sharpe_ratio": result.sharpe_ratio,
+                "max_drawdown": result.max_drawdown,
+                "profit_factor": result.profit_factor,
+                "avg_win": result.avg_win,
+                "avg_loss": result.avg_loss,
+                "timestamp": datetime.now().isoformat(),
+            }, f, indent=2)
+        click.echo(f"\n  Results saved to: {output_file}")
+
+    finally:
+        await db.close()
+
+
+def _print_historical_results(result) -> None:
+    """Print historical backtest results."""
+    print_subheader("TRADE SUMMARY")
+    click.echo(f"  {'Total Trades:':<25} {result.total_trades}")
+    click.echo(f"  {'Wins:':<25} {result.wins}")
+    click.echo(f"  {'Losses:':<25} {result.losses}")
+    click.echo(f"  {'Win Rate:':<25} {format_price(result.win_rate)}")
+
+    print_subheader("P&L SUMMARY")
+    click.echo(f"  {'Total P&L:':<25} {format_usd(result.total_pnl)}")
+    click.echo(f"  {'Total Return:':<25} {format_price(result.total_return)}")
+    click.echo(f"  {'Average Win:':<25} {format_usd(result.avg_win)}")
+    click.echo(f"  {'Average Loss:':<25} {format_usd(result.avg_loss)}")
+    click.echo(f"  {'Profit Factor:':<25} {result.profit_factor:.2f}")
+
+    print_subheader("RISK METRICS")
+    click.echo(f"  {'Sharpe Ratio:':<25} {result.sharpe_ratio:.2f}")
+    click.echo(f"  {'Max Drawdown:':<25} {format_price(result.max_drawdown)}")
+
+    if result.start_date and result.end_date:
+        print_subheader("PERIOD")
+        click.echo(f"  Start: {result.start_date}")
+        click.echo(f"  End: {result.end_date}")
+
+
+async def _run_monte_carlo_backtest(
+    strategy: str,
     simulations: int,
     capital: float,
     bet_size: float,
@@ -41,25 +218,8 @@ async def backtest(
     output: str,
     visualize: bool,
 ) -> None:
-    """Run Monte Carlo backtest simulation.
-
-    Simulates strategy performance across multiple scenarios to estimate:
-    - Return distribution (average, median, best, worst)
-    - Win rate and Sharpe ratio
-    - Probability of profitable outcome
-    - Maximum drawdown
-
-    \b
-    Examples:
-      python -m src backtest
-      python -m src backtest --simulations 500 --capital 5000
-      python -m src backtest --strategy single_arb --visualize
-    """
-    print_header("BACKTEST SIMULATION")
-    click.echo(f"\n  Strategy: {strategy}")
-    click.echo(f"  Simulations: {simulations}")
-    click.echo(f"  Starting Capital: {format_usd(capital)}")
-    click.echo(f"  Bet Size: {format_usd(bet_size)}")
+    """Run Monte Carlo simulation backtest (legacy)."""
+    click.echo("\n  [WARNING] Monte Carlo mode uses simulated outcomes, not real data")
 
     # Fetch market data for backtest
     creds = Credentials.from_env()
@@ -108,7 +268,7 @@ async def backtest(
     output_dir = Path("results/backtests")
     output_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_file = output_dir / f"backtest_{timestamp}.json"
+    output_file = output_dir / f"backtest_montecarlo_{timestamp}.json"
 
     with open(output_file, "w") as f:
         json.dump(results, f, indent=2)
