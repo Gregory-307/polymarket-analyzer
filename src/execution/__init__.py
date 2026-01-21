@@ -11,6 +11,14 @@ from .order_manager import OrderManager, OrderState
 from .position_tracker import PositionTracker, Position
 from .risk_manager import RiskManager, RiskLimits
 from .arb_executor import ArbExecutor, ArbExecution, ArbLeg
+from .paper_trader import PaperTrader, PaperPosition, PaperTrade
+from .circuit_breaker import (
+    CircuitBreaker,
+    CircuitBreakerManager,
+    LossBreaker,
+    ConsecutiveLossBreaker,
+    ErrorBreaker,
+)
 
 __all__ = [
     "OrderManager",
@@ -22,4 +30,12 @@ __all__ = [
     "ArbExecutor",
     "ArbExecution",
     "ArbLeg",
+    "PaperTrader",
+    "PaperPosition",
+    "PaperTrade",
+    "CircuitBreaker",
+    "CircuitBreakerManager",
+    "LossBreaker",
+    "ConsecutiveLossBreaker",
+    "ErrorBreaker",
 ]

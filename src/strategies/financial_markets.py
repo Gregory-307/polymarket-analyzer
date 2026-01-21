@@ -1,20 +1,21 @@
-"""Financial Markets Strategy.
+"""Financial Markets Strategy - PURE ARBITRAGE MODE.
 
-Compares prediction market prices on financial events to options-implied probabilities.
+Finds OBVIOUS mispricings between prediction markets and options-implied fair values.
 
-For events like "Will BTC exceed $100k by March?", options markets price this exactly
-via Black-Scholes. If prediction markets diverge from options-implied fair value,
-there's a potential opportunity.
+This is NOT probabilistic scalping. We only flag opportunities when:
+1. The mispricing is LARGE (15%+ default) - not small statistical edges
+2. The situation is OBVIOUS - spot already crossed threshold, or fair value is extreme
+3. The math is CLEAR - not dependent on volatile assumptions
 
-Key advantages over other strategies:
-1. Fair value is CALCULABLE (not opinion-based)
-2. Hedging is POSSIBLE (can offset with options/futures)
-3. Information is QUANTIFIABLE (financial data, not sentiment)
+Example of "obvious" arbitrage:
+- BTC is at $95,000
+- Market asks "Will BTC > $90,000 by tomorrow?"
+- Market prices YES at 85%
+- Fair value is ~99%+ (already above threshold!)
+- Edge: 14%+ -> This is OBVIOUS, not probabilistic
 
-Requirements:
-- External data source for options (Deribit for crypto, CME for rates)
-- Black-Scholes calculator
-- Market identification (find price threshold markets)
+We use Black-Scholes to calculate fair values, but the edge thresholds are set
+high enough that small modeling errors don't matter.
 """
 
 from __future__ import annotations
@@ -160,6 +161,8 @@ def calculate_digital_greeks(
 class FinancialOpportunity:
     """Represents a financial markets mispricing opportunity.
 
+    PURE ARBITRAGE: Only created when mispricing is OBVIOUS (15%+ edge).
+
     Attributes:
         market: The prediction market.
         underlying: The underlying asset (BTC, ETH, etc.).
@@ -196,6 +199,42 @@ class FinancialOpportunity:
             return "BUY"  # Market underpriced
         else:
             return "SELL"  # Market overpriced
+
+    @property
+    def is_obvious(self) -> bool:
+        """Whether this is an OBVIOUS arbitrage (not probabilistic edge).
+
+        Obvious means:
+        - Spot has already crossed the threshold (should be ~100% or ~0%)
+        - Or fair value is extreme (>95% or <5%) but market price differs significantly
+        """
+        # Case 1: Spot already above threshold - should be near 100%
+        if self.spot_price > self.threshold:
+            return self.market_price < 0.90  # Market not reflecting reality
+
+        # Case 2: Spot way below threshold with little time - should be near 0%
+        if self.spot_price < self.threshold * 0.8:  # 20%+ below threshold
+            return self.market_price > 0.30  # Market overpriced
+
+        # Case 3: Fair value is extreme but market diverges
+        if self.fair_value > 0.95 and self.market_price < 0.80:
+            return True
+        if self.fair_value < 0.05 and self.market_price > 0.20:
+            return True
+
+        return False
+
+    @property
+    def arb_type(self) -> str:
+        """Classify the type of arbitrage opportunity."""
+        if self.spot_price > self.threshold:
+            return "SPOT_ABOVE_THRESHOLD"  # Most obvious - already happened
+        elif self.fair_value > 0.90:
+            return "HIGH_PROBABILITY"  # Very likely to happen
+        elif self.fair_value < 0.10:
+            return "LOW_PROBABILITY"  # Very unlikely to happen
+        else:
+            return "PROBABILITY_EDGE"  # Standard Black-Scholes edge
 
     @property
     def hedge_ratio(self) -> float | None:
@@ -246,12 +285,16 @@ class FinancialMarketsStrategy:
 
     # Patterns to identify price threshold markets
     PRICE_PATTERNS = [
+        # "Will the price of Bitcoin be above $82,000 on January 19?"
+        r"(?:will\s+)?(?:the\s+)?price\s+of\s+(bitcoin|btc|ethereum|eth|solana|sol)\s+(?:be\s+)?(?:above|over|exceed|greater than)\s+\$?([\d,]+[km]?)",
         # "Will BTC be above $100,000 on March 31?"
-        r"will\s+(\w+)\s+(?:be\s+)?(?:above|over|exceed|greater than)\s+\$?([\d,]+[km]?)",
-        # "BTC above $100k by March"
-        r"(\w+)\s+(?:above|over|exceed)\s+\$?([\d,]+[km]?)",
+        r"will\s+(bitcoin|btc|ethereum|eth|solana|sol)\s+(?:be\s+)?(?:above|over|exceed|greater than)\s+\$?([\d,]+[km]?)",
+        # "Will Bitcoin hit $150k by March"
+        r"will\s+(bitcoin|btc|ethereum|eth|solana|sol)\s+(?:hit|reach)\s+\$?([\d,]+[km]?)",
+        # "Bitcoin above $100k by March" or "BTC above $100k"
+        r"(bitcoin|btc|ethereum|eth|solana|sol)\s+(?:above|over|exceed)\s+\$?([\d,]+[km]?)",
         # "Bitcoin to hit $100,000" or "Bitcoin hit $1m"
-        r"(bitcoin|btc|ethereum|eth)\s+(?:to\s+)?(?:hit|reach)\s+\$?([\d,]+[km]?)",
+        r"(bitcoin|btc|ethereum|eth|solana|sol)\s+(?:to\s+)?(?:hit|reach)\s+\$?([\d,]+[km]?)",
     ]
 
     # Asset name mappings
@@ -266,13 +309,16 @@ class FinancialMarketsStrategy:
 
     def __init__(
         self,
-        min_edge: float = 0.03,
+        min_edge: float = 0.15,  # 15% - only obvious mispricings
         default_risk_free_rate: float = 0.05,
     ):
         """Initialize strategy.
 
+        PURE ARBITRAGE MODE: Only flags opportunities with 15%+ edge by default.
+        This is NOT probabilistic scalping - we want OBVIOUS mispricings only.
+
         Args:
-            min_edge: Minimum edge to report (default 3%).
+            min_edge: Minimum edge to report (default 15% for obvious arb).
             default_risk_free_rate: Risk-free rate for calculations.
         """
         self.min_edge = min_edge
